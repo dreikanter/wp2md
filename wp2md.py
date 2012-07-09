@@ -41,6 +41,9 @@ WHAT2SAVE = {
         'post_type',
         'post_password',
         'is_sticky',
+        'content:encoded',
+        'excerpt:encoded',
+        'excerpt:encoded',
     ],
     'comment': [
         'comment_id',
@@ -58,6 +61,7 @@ WHAT2SAVE = {
     ],
 }
 
+MAX_POST_NAME_LEN = 20
 
 log = logging.getLogger(__name__)
 conf = {}
@@ -69,8 +73,18 @@ def init_conf():
     conf['source_file'] = 'wordpress.xml'
     conf['dump_path'] = None
     conf['verbose'] = True
+
+    # <pubDate> format
     conf['parse_date_fmt'] = "%a, %d %b %Y %H:%M:%S +0000"
-    conf['date_fmt'] = "%Y/%m/%d %H:%M:%S"
+
+    # <wp:post_date> format
+    conf['post_date_fmt'] = "%Y %H:%M:%S"
+
+    # Date/time fields format for exported data
+    conf['date_fmt'] = "%Y-%m-%d %H:%M:%S"
+
+    # File date prefix format
+    conf['file_date_fmt'] = '%Y-%m-%d'
 
 
 def init_logging(verbose=False):
@@ -87,16 +101,57 @@ def init_logging(verbose=False):
         raise Exception(getxm('Logging initialization failed', e))
 
 
+# Helpers
+
 def getxm(message, exception):
     """Returns annotated exception messge."""
     return ("%s: %s" % (message, str(exception))) if exception else message
 
 
 def tag_name(name):
+    """Removes expanded namespace from tag name."""
     return name[name.find('}') + 1:]
 
 
-def dump(file_name, data):
+def parse_date(date_str, format, default=None):
+    """Parses date string according to parse_date_fmt configuration param."""
+    try:
+        result = time.strptime(date_str, format)
+    except:
+        msg = "Error parsing date string '%s'. Using default value." % date_str
+        log.debug(msg)
+        result = default
+
+    return result
+
+
+def get_dump_path(file_name, subdir=''):
+    """Generates dump directory absolute path."""
+    explicit = conf['dump_path']
+    result = explicit or '{date}_{source}'
+    result = result.format(date=time.strftime(conf['file_date_fmt']),
+                           source=os.path.basename(conf['source_file']))
+    return os.path.join(os.path.abspath(result), subdir, file_name)
+
+
+def get_post_filename(data):
+    """Generates file name from item processed data."""
+    pid = data.get('post_id', None)
+    name = str(data.get('post_name', None))
+    if len(name) > MAX_POST_NAME_LEN:
+        name = name[:MAX_POST_NAME_LEN] + '_'
+
+    try:
+        pub_date = time.strftime(conf['file_date_fmt'], data['post_date'])
+    except:
+        pub_date = None
+
+    return '_'.join(filter(bool, [pub_date, pid, name])) + '.txt'
+
+
+# Data dumping
+
+def dump(file_name, data, order):
     """Dumps a dictionary to YAML-like text file."""
     try:
         dir_path = os.path.dirname(os.path.abspath(file_name))
@@ -104,57 +159,68 @@ def dump(file_name, data):
             os.makedirs(dir_path)
         with codecs.open(file_name, 'w', 'utf-8') as f:
             content = None
-            for field in data:
-                if field == 'content':
+            for field in filter(lambda x: x in data, [item for item in order]):
+                if field == 'content:encoded':
                     content = data[field]
                 else:
-                    f.write(u"%s: %s\n" % (unicode(field), unicode(data[field])))
+                    if type(data[field]) == time.struct_time:
+                        value = time.strftime(conf['date_fmt'], data[field])
+                    else:
+                        value = data[field]
+                    f.write(u"%s: %s\n" % (unicode(field), unicode(value)))
             if content:
                 f.write('\n' + content)
     except Exception as e:
-        log.error("Error saving data to '%s'" % file_name)
+        log.error("Error saving data to '%s'" % (file_name))
         log.debug(e)
 
 
-def get_dump_path(file_name, subdir=''):
-    """Generates dump directory absolute path."""
-    explicit = conf['dump_path']
-    result = explicit or '{date}_{source}'
-    result = result.format(date=time.strftime('%Y-%m-%d'),
-                           source=os.path.basename(conf['source_file']))
-    return os.path.join(os.path.abspath(result), subdir, file_name)
-
-
-def parse_date(date_str, default=None):
-    """Parses date string according to parse_date_fmt configuration parameter.
-    Returns parsed value in date_fmt format or default if parsing was filed."""
-    try:
-        result = time.strptime(date_str, conf['parse_date_fmt'])
-    except:
-        msg = "Error parsing date string '%s'. Using default value." % date_str
-        log.debug(msg)
-        result = default
-
-    return time.strftime(conf['date_fmt'], result) if result else ''
-
-
 def dump_channel(data):
+    """Dumps RSS channel metadata."""
     file_name = get_dump_path('blog.txt')
-    log.info("Dumping channel data to '%s'..." % file_name)
-
+    log.info("Dumping blog metadata to '%s'..." % file_name)
     fields = WHAT2SAVE['channel']
     processed = {field: data.get(field, None) for field in fields}
 
     pub_date = data.get('pubDate', None)
-    processed['export_date'] = parse_date(pub_date, time.gmtime())
+    format = conf['parse_date_fmt']
+    processed['export_date'] = parse_date(pub_date, format, time.gmtime())
 
-    dump(file_name, processed)
+    dump(file_name, processed, fields)
 
 
 def dump_item(data):
-    log.info("Dumping item...")
-    # TODO: ...
+    """Dumps RSS chnale item."""
+    item_type = data.get('post_type', 'other')
+    if not item_type in ['post', 'page']:
+        return
 
+    fields = WHAT2SAVE['item']
+    processed = {field: data.get(field, None) for field in fields}
+
+    # Post date
+    format = conf['date_fmt']
+    value = processed.get('post_date', None)
+    processed['post_date'] = value and parse_date(value, format, None)
+
+    # Post date GMT
+    value = processed.get('post_date_gmt', None)
+    processed['post_date_gmt'] = value and parse_date(value, format, None)
+
+    # Post content
+    value = data.get('content:encoded', None)
+    processed['content'] = value and parse_date(value, format, None)
+
+    # Post excerpt
+    value = data.get('excerpt:encoded', None)
+    processed['excerpt'] = value and parse_date(value, format, None)
+
+    file_name = get_post_filename(processed)
+    log.info("Dumping %s\%s..." % (item_type, file_name))
+    dump(get_dump_path(file_name, item_type), processed, fields)
+
+
+# The Parser
 
 class CustomParser:
     def __init__(self):
