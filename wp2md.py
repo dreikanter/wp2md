@@ -112,7 +112,7 @@ def init_logging(log_file, verbose):
 
         if log_file:
             channel = logging.FileHandler(log_file)
-            channel.setLevel(log_level)
+            channel.setLevel(logging.DEBUG)
             fmt = '%(asctime)s %(levelname)s: %(message)s'
             channel.setFormatter(logging.Formatter(fmt, '%H:%M:%S'))
             log.addHandler(channel)
@@ -142,21 +142,18 @@ def parse_args():
         metavar='PATH',
         default=None,
         help='destination path for generated files')
-    # parse_date_fmt
     parser.add_argument(
         '-u',
         action='store',
         metavar='FMT',
         default="%a, %d %b %Y %H:%M:%S +0000",
         help='<pubDate> date/time parsing format')
-    # post_date_fmt
     parser.add_argument(
         '-o',
         action='store',
         metavar='FMT',
         default="%Y %H:%M:%S",
         help='<wp:post_date> and <wp:post_date_gmt> parsing format')
-    # date_fmt
     parser.add_argument(
         '-f',
         action='store',
@@ -241,10 +238,11 @@ def dump(file_name, data, order):
             os.makedirs(dir_path)
 
         with codecs.open(file_name, 'w', 'utf-8') as f:
-            content = None
+            extras = {}
             for field in filter(lambda x: x in data, [item for item in order]):
-                if field == 'content':
-                    content = data[field]
+                if field in ['content', 'comments', 'excerpt']:
+                    # Fields for non-standard processing
+                    extras[field] = data[field]
                 else:
                     if type(data[field]) == time.struct_time:
                         value = time.strftime(conf['date_fmt'], data[field])
@@ -252,12 +250,24 @@ def dump(file_name, data, order):
                         value = data[field] or ''
                     f.write(u"%s: %s\n" % (unicode(field), unicode(value)))
 
-            if content:
-                f.write('\n' + content)
+            if extras:
+                excerpt = extras.get('excerpt', '')
+                excerpt = excerpt and '<!--%s-->' % excerpt
+
+                content = extras.get('content', '')
+                comments = get_comments_md(extras.get('comments', []))
+
+                extras = filter(None, [excerpt, content, comments])
+                f.write('\n' + '\n\n'.join(extras))
 
     except Exception as e:
         log.error("Error saving data to '%s'" % (file_name))
         log.debug(e)
+
+
+def get_comments_md(comments):
+    # TODO: ...
+    return '## Comments'
 
 
 def dump_channel(data):
@@ -321,17 +331,14 @@ class CustomParser:
         tag = tag_name(tag)
         if tag == 'channel':
             self.start_section('channel')
-            log.debug('<channel>')
 
         elif tag == 'item':
             self.item = {'comments': []}
             self.start_section('item')
-            log.debug('<item>')
 
         elif self.item and tag == 'comment':
             self.cmnt = {}
             self.start_section('comment')
-            log.debug('<comment>')
 
         elif self.cur_section():
             self.subj = tag
@@ -343,19 +350,16 @@ class CustomParser:
         tag = tag_name(tag)
         if tag == 'comment' and self.cur_section() == 'comment':
             self.end_section()
-            log.debug('</comment>')
             self.item['comments'].append(self.cmnt)
             self.cmnt = None
 
         elif tag == 'item' and self.cur_section() == 'item':
             self.end_section()
-            log.debug('</item>')
             dump_item(self.item)
             self.item = None
 
         elif tag == 'channel':
             self.end_section()
-            log.debug('</channel>')
             dump_channel(self.channel)
 
         elif self.cur_section():
@@ -363,7 +367,6 @@ class CustomParser:
 
     def data(self, data):
         if self.subj:
-            log.debug("%s.%s" % ('.'.join(self.section_stack), self.subj))
             if self.cur_section() == 'comment':
                 self.cmnt[self.subj] = data
 

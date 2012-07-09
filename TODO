@@ -1,4 +1,5 @@
-Multiline fields (excerpt)
-Check parsing
-Comments dumping
-Comment tags shortening
+Comments dumping (format uding MD and concat to content)
+Comment tags shortening (?)
+Convert content to MD
+Replace ampersand characters
+Write readme
