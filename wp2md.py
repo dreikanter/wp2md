@@ -21,29 +21,30 @@ WHAT2SAVE = {
         'author_email',
         'base_site_url',
         'base_blog_url',
-        'language',
+        # 'link',
+        # 'language',
     ],
     'item': [
         'title',
         'link',
         'creator',
-        'guid',
         'description',
         'post_id',
         'post_date',
         'post_date_gmt',
         'comment_status',
-        'ping_status',
         'post_name',
         'status',
-        'post_parent',
-        'menu_order',
-        'post_type',
-        'post_password',
-        'is_sticky',
         'content',
         'excerpt',
         'comments',
+        # 'guid',
+        # 'is_sticky',
+        # 'menu_order',
+        # 'ping_status',
+        # 'post_parent',
+        # 'post_password',
+        # 'post_type',
     ],
     'comment': [
         'comment_id',
@@ -56,8 +57,8 @@ WHAT2SAVE = {
         'comment_content',
         'comment_approved',
         'comment_type',
-        'comment_parent',
-        'comment_user_id',
+        # 'comment_parent',
+        # 'comment_user_id',
     ],
 }
 
@@ -101,15 +102,17 @@ def init_logging(log_file, verbose):
     try:
         global log
         log.setLevel(logging.DEBUG)
+        log_level = logging.DEBUG if verbose else logging.INFO
+
         channel = logging.StreamHandler()
-        channel.setLevel(logging.DEBUG if verbose else logging.INFO)
+        channel.setLevel(log_level)
         fmt = '%(message)s'
         channel.setFormatter(logging.Formatter(fmt, '%H:%M:%S'))
         log.addHandler(channel)
 
         if log_file:
             channel = logging.FileHandler(log_file)
-            channel.setLevel(logging.DEBUG)
+            channel.setLevel(log_level)
             fmt = '%(asctime)s %(levelname)s: %(message)s'
             channel.setFormatter(logging.Formatter(fmt, '%H:%M:%S'))
             log.addHandler(channel)
@@ -164,7 +167,7 @@ def parse_args():
         '-p',
         action='store',
         metavar='FMT',
-        default="%Y-%m-%d",
+        default="%Y%m%d",
         help='date prefix format for generated files')
     parser.add_argument(
         'source',
@@ -182,7 +185,13 @@ def getxm(message, exception):
 
 def tag_name(name):
     """Removes expanded namespace from tag name."""
-    return name[name.find('}') + 1:]
+    result = name[name.find('}') + 1:]
+    if result == 'encoded':
+        if name.find('/content/') > -1:
+            result = 'content'
+        elif name.find('/excerpt/') > -1:
+            result = 'excerpt'
+    return result
 
 
 def parse_date(date_str, format, default=None):
@@ -230,20 +239,22 @@ def dump(file_name, data, order):
         dir_path = os.path.dirname(os.path.abspath(file_name))
         if dir_path and not os.path.exists(dir_path):
             os.makedirs(dir_path)
+
         with codecs.open(file_name, 'w', 'utf-8') as f:
             content = None
             for field in filter(lambda x: x in data, [item for item in order]):
-                log.info(field)
                 if field == 'content':
                     content = data[field]
                 else:
                     if type(data[field]) == time.struct_time:
                         value = time.strftime(conf['date_fmt'], data[field])
                     else:
-                        value = data[field]
+                        value = data[field] or ''
                     f.write(u"%s: %s\n" % (unicode(field), unicode(value)))
+
             if content:
                 f.write('\n' + content)
+
     except Exception as e:
         log.error("Error saving data to '%s'" % (file_name))
         log.debug(e)
@@ -264,7 +275,7 @@ def dump_channel(data):
 
 
 def dump_item(data):
-    """Dumps RSS chnale item."""
+    """Dumps RSS channel item."""
     global stats
     item_type = data.get('post_type', 'other')
     item_type = {'post': 'posts', 'page': 'pages'}.get(item_type, None)
@@ -274,9 +285,7 @@ def dump_item(data):
     fields = WHAT2SAVE['item']
     processed = {}
     for field in fields:
-        if field in ['content', 'excerpt']:
-            field = field + ':encoded'
-        processed[field] = data.get(field, None)
+        processed[field] = data.get(field, '')
 
     # Post date
     format = conf['date_fmt']
@@ -333,16 +342,16 @@ class CustomParser:
     def end(self, tag):
         tag = tag_name(tag)
         if tag == 'comment' and self.cur_section() == 'comment':
-            self.item['comments'].append(self.cmnt)
-            self.cmnt = None
             self.end_section()
             log.debug('</comment>')
+            self.item['comments'].append(self.cmnt)
+            self.cmnt = None
 
         elif tag == 'item' and self.cur_section() == 'item':
-            dump_item(self.item)
-            self.item = None
             self.end_section()
             log.debug('</item>')
+            dump_item(self.item)
+            self.item = None
 
         elif tag == 'channel':
             self.end_section()

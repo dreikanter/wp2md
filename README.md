@@ -5,7 +5,6 @@ A python script to convert Wordpress XML dump to a set of plain text/[markdown](
 Requirements:
 
 * Python 2.7
-* Python-Markdown
 
 ## Processing
 
@@ -37,13 +36,15 @@ Attachments:
 
 Comments file format:
 
-	[comment header]
-	[comment body]
-	--
-	[next comment header]
-	[next comment body]
-	--
-	...
+```
+[comment header]
+[comment body]
+--
+[next comment header]
+[next comment body]
+--
+...
+```
 
 Comment header includes all exported fields:
 
@@ -77,3 +78,6 @@ Dumping blog metadata to 'd:\src\wp2md\2012-07-09_wordpress.xml\blog.txt'
 ------------------------------------------------------------
 Totals: posts: 130, pages: 11, comments: 729
 ```
+
+
+Wordpress: Tools → Export → All content
