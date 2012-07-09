@@ -84,7 +84,7 @@ conf = {}
 def init():
     global conf
     args = parse_args()
-    init_logging(args.v)
+    init_logging(args.l, args.v)
     conf = {
         'source_file': args.source,
         'dump_path': args.d,
@@ -93,37 +93,52 @@ def init():
         'post_date_fmt': args.o,
         'date_fmt': args.f,
         'file_date_fmt': args.p,
+        'log_file': args.l
     }
 
 
-def init_logging(verbose=False):
+def init_logging(log_file, verbose):
     try:
         global log
         log.setLevel(logging.DEBUG)
         channel = logging.StreamHandler()
         channel.setLevel(logging.DEBUG if verbose else logging.INFO)
-        log_fmt = '%(message)s'  # '%(asctime)s %(levelname)s: %(message)s'
-        channel.setFormatter(logging.Formatter(log_fmt, '%H:%M:%S'))
+        fmt = '%(message)s'
+        channel.setFormatter(logging.Formatter(fmt, '%H:%M:%S'))
         log.addHandler(channel)
+
+        if log_file:
+            channel = logging.FileHandler(log_file)
+            channel.setLevel(logging.DEBUG)
+            fmt = '%(asctime)s %(levelname)s: %(message)s'
+            channel.setFormatter(logging.Formatter(fmt, '%H:%M:%S'))
+            log.addHandler(channel)
+
     except Exception as e:
         log.debug(traceback.format_exc())
         raise Exception(getxm('Logging initialization failed', e))
 
 
 def parse_args():
-    desc = __doc__.split('\n')[0]
+    desc = __doc__.split('\n\n')[0]
     parser = argparse.ArgumentParser(description=desc)
     parser.add_argument(
         '-v',
         action='store_true',
         default=False,
-        help='Verbose logging')
+        help='verbose logging')
+    parser.add_argument(
+        '-l',
+        action='store',
+        metavar='FILE',
+        default=None,
+        help='log to file')
     parser.add_argument(
         '-d',
         action='store',
         metavar='PATH',
         default=None,
-        help='Destination path for generated files')
+        help='destination path for generated files')
     # parse_date_fmt
     parser.add_argument(
         '-u',
@@ -144,17 +159,17 @@ def parse_args():
         action='store',
         metavar='FMT',
         default="%Y-%m-%d %H:%M:%S",
-        help='Date/time fields format for exported data')
+        help='date/time fields format for exported data')
     parser.add_argument(
         '-p',
         action='store',
         metavar='FMT',
         default="%Y-%m-%d",
-        help='Date prefix format for generated files')
+        help='date prefix format for generated files')
     parser.add_argument(
         'source',
         action='store',
-        help='Source XML dump exported from Wordpress')
+        help='source XML dump exported from Wordpress')
     return parser.parse_args(sys.argv[1:])
 
 
@@ -218,6 +233,7 @@ def dump(file_name, data, order):
         with codecs.open(file_name, 'w', 'utf-8') as f:
             content = None
             for field in filter(lambda x: x in data, [item for item in order]):
+                log.info(field)
                 if field == 'content':
                     content = data[field]
                 else:
@@ -278,6 +294,7 @@ def dump_item(data):
     statplusplus(item_type)
     if 'comments' in data:
         statplusplus('comments', len(data['comments']))
+
 
 # The Parser
 
