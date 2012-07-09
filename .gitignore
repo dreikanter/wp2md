@@ -1,0 +1,8 @@
+*.py[co]
+bin
+build
+dist
+sdist
+MANIFEST
+wordpress.xml
+out/*
