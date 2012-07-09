@@ -6,6 +6,16 @@ Requirements:
 
 * Python 2.7
 
+## Installation
+
+[TBD]
+
+## Usage
+
+Export Wordpress data to XML file (Tools → Export → All content)
+
+	python wp2md.py -d ../output -l wp2md.log wordpress.xml
+
 ## Processing
 
 Common blog metadata:
@@ -80,5 +90,5 @@ Totals: posts: 130, pages: 11, comments: 729
 ```
 
 
-Wordpress: Tools → Export → All content
+
 

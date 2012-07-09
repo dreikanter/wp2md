@@ -273,7 +273,7 @@ def get_comments_md(comments):
 def dump_channel(data):
     """Dumps RSS channel metadata."""
     file_name = get_dump_path('blog.txt')
-    log.info("Dumping blog metadata to '%s'..." % file_name)
+    log.info("Dumping blog metadata to '%s'" % file_name)
     fields = WHAT2SAVE['channel']
     processed = {field: data.get(field, None) for field in fields}
 
@@ -307,7 +307,7 @@ def dump_item(data):
     processed['post_date_gmt'] = value and parse_date(value, format, None)
 
     file_name = get_post_filename(processed)
-    log.info("Dumping %s\%s..." % (item_type, file_name))
+    log.info("Dumping '%s\%s'" % (item_type, file_name))
     dump(get_dump_path(file_name, item_type), processed, fields)
 
     statplusplus(item_type)
