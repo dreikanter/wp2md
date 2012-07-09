@@ -1,10 +1,12 @@
 #!/usr/bin/env python
-"""[TBD]"""
+"""Export Wordpress XML dump to markdown files"""
 
-import os.path
+import argparse
 import codecs
-import time
 import logging
+import os.path
+import sys
+import time
 import traceback
 from xml.etree.ElementTree import XMLParser
 
@@ -67,24 +69,19 @@ log = logging.getLogger(__name__)
 conf = {}
 
 
-def init_conf():
-    # TODO: Get it from args
+def init():
     global conf
-    conf['source_file'] = 'wordpress.xml'
-    conf['dump_path'] = None
-    conf['verbose'] = True
-
-    # <pubDate> format
-    conf['parse_date_fmt'] = "%a, %d %b %Y %H:%M:%S +0000"
-
-    # <wp:post_date> format
-    conf['post_date_fmt'] = "%Y %H:%M:%S"
-
-    # Date/time fields format for exported data
-    conf['date_fmt'] = "%Y-%m-%d %H:%M:%S"
-
-    # File date prefix format
-    conf['file_date_fmt'] = '%Y-%m-%d'
+    args = parse_args()
+    init_logging(args.v)
+    conf = {
+        'source_file': args.source,
+        'dump_path': args.d,
+        'verbose': args.v,
+        'parse_date_fmt': args.u,
+        'post_date_fmt': args.o,
+        'date_fmt': args.f,
+        'file_date_fmt': args.p,
+    }
 
 
 def init_logging(verbose=False):
@@ -99,6 +96,53 @@ def init_logging(verbose=False):
     except Exception as e:
         log.debug(traceback.format_exc())
         raise Exception(getxm('Logging initialization failed', e))
+
+
+def parse_args():
+    desc = __doc__.split('\n')[0]
+    parser = argparse.ArgumentParser(description=desc)
+    parser.add_argument(
+        '-v',
+        action='store_true',
+        help='Verbose logging')
+    parser.add_argument(
+        '-d',
+        action='store',
+        metavar='PATH',
+        default=None,
+        help='Destination path for generated files')
+    # parse_date_fmt
+    parser.add_argument(
+        '-u',
+        action='store',
+        metavar='FMT',
+        default="%a, %d %b %Y %H:%M:%S +0000",
+        help='<pubDate> date/time parsing format')
+    # post_date_fmt
+    parser.add_argument(
+        '-o',
+        action='store',
+        metavar='FMT',
+        default="%Y %H:%M:%S",
+        help='<wp:post_date> and <wp:post_date_gmt> parsing format')
+    # date_fmt
+    parser.add_argument(
+        '-f',
+        action='store',
+        metavar='FMT',
+        default="%Y-%m-%d %H:%M:%S",
+        help='Date/time fields format for exported data')
+    parser.add_argument(
+        '-p',
+        action='store',
+        metavar='FMT',
+        default=None,
+        help='Date prefix format for generated files')
+    parser.add_argument(
+        'source',
+        action='store',
+        help='Source XML dump exported from Wordpress')
+    return parser.parse_args(sys.argv[1:])
 
 
 # Helpers
@@ -307,8 +351,7 @@ class CustomParser:
 
 
 if __name__ == '__main__':
-    init_conf()
-    init_logging(conf['verbose'])
+    init()
 
     log.info("Parsing '%s'..." % os.path.basename(conf['source_file']))
 
