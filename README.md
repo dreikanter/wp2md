@@ -59,3 +59,21 @@ Comment header includes all exported fields:
 * type
 * parent
 * user_id
+
+
+Usage:
+
+```
+$ python wp2md.py wordpress.xml
+Parsing 'wordpress.xml'
+Dumping 'pages\2007-11-23_4_about.txt'
+Dumping 'pages\2007-11-24_9_feedback.txt'
+Dumping 'pages\2007-11-25_10_projects.txt'
+...
+Dumping 'posts\2010-11-11_586_brave-new-evernote.txt'
+Dumping 'posts\2011-05-07_616_zfconf-2011.txt'
+Dumping 'posts\2011-11-23_635_yandex-subbotnik.txt'
+Dumping blog metadata to 'd:\src\wp2md\2012-07-09_wordpress.xml\blog.txt'
+------------------------------------------------------------
+Totals: posts: 130, pages: 11, comments: 729
+```

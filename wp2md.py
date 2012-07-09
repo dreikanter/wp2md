@@ -29,8 +29,6 @@ WHAT2SAVE = {
         'creator',
         'guid',
         'description',
-        'content:encoded',
-        'excerpt:encoded',
         'post_id',
         'post_date',
         'post_date_gmt',
@@ -43,9 +41,9 @@ WHAT2SAVE = {
         'post_type',
         'post_password',
         'is_sticky',
-        'content:encoded',
-        'excerpt:encoded',
-        'excerpt:encoded',
+        'content',
+        'excerpt',
+        'comments',
     ],
     'comment': [
         'comment_id',
@@ -63,11 +61,25 @@ WHAT2SAVE = {
     ],
 }
 
-MAX_POST_NAME_LEN = 20
+stats = {
+    'pages': 0,
+    'posts': 0,
+    'comments': 0,
+}
+
+
+def statplusplus(field, value=1):
+    global stats
+    if field in stats:
+        stats[field] += value
+    else:
+        raise ValueError("Illegal name for stats field")
 
 log = logging.getLogger(__name__)
 conf = {}
 
+
+# Configuration and logging
 
 def init():
     global conf
@@ -90,7 +102,7 @@ def init_logging(verbose=False):
         log.setLevel(logging.DEBUG)
         channel = logging.StreamHandler()
         channel.setLevel(logging.DEBUG if verbose else logging.INFO)
-        log_fmt = '%(asctime)s %(levelname)s: %(message)s'
+        log_fmt = '%(message)s'  # '%(asctime)s %(levelname)s: %(message)s'
         channel.setFormatter(logging.Formatter(log_fmt, '%H:%M:%S'))
         log.addHandler(channel)
     except Exception as e:
@@ -104,6 +116,7 @@ def parse_args():
     parser.add_argument(
         '-v',
         action='store_true',
+        default=False,
         help='Verbose logging')
     parser.add_argument(
         '-d',
@@ -136,7 +149,7 @@ def parse_args():
         '-p',
         action='store',
         metavar='FMT',
-        default=None,
+        default="%Y-%m-%d",
         help='Date prefix format for generated files')
     parser.add_argument(
         'source',
@@ -182,8 +195,9 @@ def get_post_filename(data):
     """Generates file name from item processed data."""
     pid = data.get('post_id', None)
     name = str(data.get('post_name', None))
-    if len(name) > MAX_POST_NAME_LEN:
-        name = name[:MAX_POST_NAME_LEN] + '_'
+    max_name_len = 20
+    if len(name) > max_name_len:
+        name = name[:max_name_len] + '_'
 
     try:
         pub_date = time.strftime(conf['file_date_fmt'], data['post_date'])
@@ -204,7 +218,7 @@ def dump(file_name, data, order):
         with codecs.open(file_name, 'w', 'utf-8') as f:
             content = None
             for field in filter(lambda x: x in data, [item for item in order]):
-                if field == 'content:encoded':
+                if field == 'content':
                     content = data[field]
                 else:
                     if type(data[field]) == time.struct_time:
@@ -235,12 +249,18 @@ def dump_channel(data):
 
 def dump_item(data):
     """Dumps RSS chnale item."""
+    global stats
     item_type = data.get('post_type', 'other')
-    if not item_type in ['post', 'page']:
+    item_type = {'post': 'posts', 'page': 'pages'}.get(item_type, None)
+    if not item_type:
         return
 
     fields = WHAT2SAVE['item']
-    processed = {field: data.get(field, None) for field in fields}
+    processed = {}
+    for field in fields:
+        if field in ['content', 'excerpt']:
+            field = field + ':encoded'
+        processed[field] = data.get(field, None)
 
     # Post date
     format = conf['date_fmt']
@@ -251,18 +271,13 @@ def dump_item(data):
     value = processed.get('post_date_gmt', None)
     processed['post_date_gmt'] = value and parse_date(value, format, None)
 
-    # Post content
-    value = data.get('content:encoded', None)
-    processed['content'] = value and parse_date(value, format, None)
-
-    # Post excerpt
-    value = data.get('excerpt:encoded', None)
-    processed['excerpt'] = value and parse_date(value, format, None)
-
     file_name = get_post_filename(processed)
     log.info("Dumping %s\%s..." % (item_type, file_name))
     dump(get_dump_path(file_name, item_type), processed, fields)
 
+    statplusplus(item_type)
+    if 'comments' in data:
+        statplusplus('comments', len(data['comments']))
 
 # The Parser
 
@@ -352,11 +367,12 @@ class CustomParser:
 
 if __name__ == '__main__':
     init()
-
     log.info("Parsing '%s'..." % os.path.basename(conf['source_file']))
 
     target = CustomParser()
     parser = XMLParser(target=target)
     parser.feed(open(conf['source_file']).read())
 
-    log.info('Done')
+    log.info('-' * 60)
+    totals = ', '.join([("%s: %d" % (s, stats[s])) for s in stats])
+    log.info('Totals: ' + totals)

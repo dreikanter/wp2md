@@ -6,3 +6,4 @@ sdist
 MANIFEST
 wordpress.xml
 out/*
+*.log
