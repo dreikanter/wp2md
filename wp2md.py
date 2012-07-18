@@ -9,6 +9,7 @@ import sys
 import time
 import traceback
 from xml.etree.ElementTree import XMLParser
+from pprint import pformat
 
 
 # XML elements to save
@@ -225,7 +226,7 @@ def get_post_filename(data):
     except:
         pub_date = None
 
-    return '_'.join(filter(bool, [pub_date, pid, name])) + '.txt'
+    return '_'.join(filter(bool, [pub_date, pid, name])) + '.md'
 
 
 # Data dumping
@@ -266,13 +267,30 @@ def dump(file_name, data, order):
 
 
 def get_comments_md(comments):
-    # TODO: ...
-    return '## Comments'
+    """Generates a MD-formatted plain-text comments from parsed data."""
+    result = u""
+
+    for comment in comments:
+        try:
+            if comment['comment_approved'] == '1':
+                cmfmt = u"**[{author}](#{id} \"{timestamp}\"):** {content}\n\n"
+                result += cmfmt.format(
+                        id=comment['comment_id'],
+                        timestamp=comment['comment_date'],
+                        author=comment['comment_author'],
+                        content=comment['comment_content'].strip()
+                    )
+
+        except:
+            # Ignore malformed data
+            pass
+
+    return result and (u"## Comments\n\n" + result)
 
 
 def dump_channel(data):
     """Dumps RSS channel metadata."""
-    file_name = get_dump_path('blog.txt')
+    file_name = get_dump_path('info.txt')
     log.info("Dumping blog metadata to '%s'" % file_name)
     fields = WHAT2SAVE['channel']
     processed = {field: data.get(field, None) for field in fields}
