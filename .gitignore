@@ -1,9 +1,15 @@
 *.py[co]
+*.log
+
+; Python packaging
 bin
 build
 dist
 sdist
 MANIFEST
-wordpress.xml
+
+; Wordpress exported data
+*.xml
+
+; Generated files
 out/*
-*.log
