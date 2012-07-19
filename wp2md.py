@@ -3,9 +3,11 @@
 
 import argparse
 import codecs
+import datetime
 import htmlentitydefs
 import html2text
 import logging
+import markdown
 import os.path
 import re
 import sys
@@ -71,6 +73,8 @@ stats = {
     'posts': 0,
     'comments': 0,
 }
+
+MD = markdown.Markdown(extensions=[])
 
 
 def statplusplus(field, value=1):
@@ -264,8 +268,9 @@ def dump(file_name, data, order):
                 excerpt = extras.get('excerpt', '')
                 excerpt = excerpt and '<!--%s-->' % excerpt
 
-                content = html2md(extras.get('content', ''))
-                comments = get_comments_md(extras.get('comments', []))
+                content = extras.get('content', '')
+                content = html2md(MD.convert(content))
+                comments = html2md(get_comments_md(extras.get('comments', [])))
 
                 extras = filter(None, [excerpt, content, comments])
                 f.write('\n' + '\n\n'.join(extras))
@@ -427,6 +432,7 @@ if __name__ == '__main__':
     init()
     log.info("Parsing '%s'..." % os.path.basename(conf['source_file']))
 
+    start_time = datetime.datetime.now()
     target = CustomParser()
     parser = XMLParser(target=target)
     parser.feed(open(conf['source_file']).read())
@@ -434,3 +440,4 @@ if __name__ == '__main__':
     log.info('-' * 60)
     totals = ', '.join([("%s: %d" % (s, stats[s])) for s in stats])
     log.info('Totals: ' + totals)
+    log.info('Elapsed time: ' + str(datetime.datetime.now() - start_time).strip('0:'))

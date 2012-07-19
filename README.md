@@ -6,6 +6,7 @@ Requirements:
 
 * Python 2.7
 * html2text (pip install html2text)
+* python-markdown (pip install markdown)
 
 ## Installation
 
