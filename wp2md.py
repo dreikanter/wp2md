@@ -75,6 +75,7 @@ stats = {
 }
 
 MD = markdown.Markdown(extensions=[])
+MAX_POST_NAME_LENGTH = 32
 
 
 def statplusplus(field, value=1):
@@ -102,8 +103,14 @@ def init():
         'post_date_fmt': args.o,
         'date_fmt': args.f,
         'file_date_fmt': args.p,
-        'log_file': args.l
+        'log_file': args.l,
+        'md_input': args.m,
+        'max_name_len': args.n
     }
+
+    limit = conf['max_name_len']
+    if limit < 0 or limit > 100:
+        log.warn('Bad post name length limitation value. Using default.')
 
 
 def init_logging(log_file, verbose):
@@ -175,6 +182,17 @@ def parse_args():
         default="%Y%m%d",
         help='date prefix format for generated files')
     parser.add_argument(
+        '-m',
+        action='store_true',
+        default=False,
+        help='preprocess content with Markdown (helpful for MD input)')
+    parser.add_argument(
+        '-n',
+        action='store',
+        metavar='LEN',
+        default=MAX_POST_NAME_LENGTH,
+        help='post name (slug) length limit for file naming')
+    parser.add_argument(
         'source',
         action='store',
         help='source XML dump exported from Wordpress')
@@ -242,6 +260,19 @@ def html2md(html):
     return h2t.handle(html).strip()
 
 
+def stopwatch_set():
+    """Starts stopwatch timer."""
+    globals()['_stopwatch_start_time']
+
+
+def stopwatch_get():
+    """Returns string representation for elapsed time since last
+    stopwatch_set() call."""
+    delta = datetime.datetime.now() - globals()['_stopwatch_start_time']
+    delta = str(delta).strip('0:')
+    return ('0' + delta) if delta[0] == '.' else delta
+
+
 # Data dumping
 
 def dump(file_name, data, order):
@@ -269,7 +300,8 @@ def dump(file_name, data, order):
                 excerpt = excerpt and '<!--%s-->' % excerpt
 
                 content = extras.get('content', '')
-                content = html2md(MD.convert(content))
+                if conf['md_input']:
+                    content = html2md(MD.convert(content))
                 comments = html2md(get_comments_md(extras.get('comments', [])))
 
                 extras = filter(None, [excerpt, content, comments])
@@ -432,7 +464,7 @@ if __name__ == '__main__':
     init()
     log.info("Parsing '%s'..." % os.path.basename(conf['source_file']))
 
-    start_time = datetime.datetime.now()
+    stopwatch_set()
     target = CustomParser()
     parser = XMLParser(target=target)
     parser.feed(open(conf['source_file']).read())
@@ -440,4 +472,4 @@ if __name__ == '__main__':
     log.info('-' * 60)
     totals = ', '.join([("%s: %d" % (s, stats[s])) for s in stats])
     log.info('Totals: ' + totals)
-    log.info('Elapsed time: ' + str(datetime.datetime.now() - start_time).strip('0:'))
+    log.info('Elapsed time: ' + stopwatch_get())
