@@ -1,10 +1,8 @@
-Convert content
-	HTML to MD
-	Convert special characters
-	Convert comments to MD
+Fix source markdown processing
 Add avatars to comments
 	http://en.gravatar.com/site/implement/images/
 	http://0.gravatar.com/avatar/4751166532ec7ac6dddfdf8f6fcdd944?s=20&d=http%3A%2F%2Fa.paradigm.ru%2Fno-avatar.png&r=R
 Write readme
 Generate posts list (archive.html)
 Add link to public-static readme
+Packaging (entry_points)

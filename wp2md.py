@@ -3,8 +3,11 @@
 
 import argparse
 import codecs
+import htmlentitydefs
+import html2text
 import logging
 import os.path
+import re
 import sys
 import time
 import traceback
@@ -229,6 +232,12 @@ def get_post_filename(data):
     return '_'.join(filter(bool, [pub_date, pid, name])) + '.md'
 
 
+def html2md(html):
+    h2t = html2text.HTML2Text()
+    h2t.unicode_snob = False
+    return h2t.handle(html).strip()
+
+
 # Data dumping
 
 def dump(file_name, data, order):
@@ -255,7 +264,7 @@ def dump(file_name, data, order):
                 excerpt = extras.get('excerpt', '')
                 excerpt = excerpt and '<!--%s-->' % excerpt
 
-                content = extras.get('content', '')
+                content = html2md(extras.get('content', ''))
                 comments = get_comments_md(extras.get('comments', []))
 
                 extras = filter(None, [excerpt, content, comments])
@@ -268,17 +277,19 @@ def dump(file_name, data, order):
 
 def get_comments_md(comments):
     """Generates a MD-formatted plain-text comments from parsed data."""
-    result = u""
-
+    result = u''
     for comment in comments:
         try:
-            if comment['comment_approved'] == '1':
+            approved = comment['comment_approved'] == '1'
+            pingback = comment.get('comment_type', '').lower() == 'pingback'
+            if approved and not pingback:
                 cmfmt = u"**[{author}](#{id} \"{timestamp}\"):** {content}\n\n"
+                content = html2md(comment['comment_content'])
                 result += cmfmt.format(
                         id=comment['comment_id'],
                         timestamp=comment['comment_date'],
                         author=comment['comment_author'],
-                        content=comment['comment_content'].strip()
+                        content=content
                     )
 
         except:

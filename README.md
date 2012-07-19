@@ -5,6 +5,7 @@ A python script to convert Wordpress XML dump to a set of plain text/[markdown](
 Requirements:
 
 * Python 2.7
+* html2text (pip install html2text)
 
 ## Installation
 
