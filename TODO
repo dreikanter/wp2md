@@ -8,6 +8,4 @@ Packaging
 	entry_points
 	Include or add ref for html2text
 Check if MD reinstantiation will work faster
-
-charref
-entityref
+Drop html2text local copy if the patch will be accepted.

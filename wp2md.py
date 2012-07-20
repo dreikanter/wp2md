@@ -4,7 +4,6 @@
 import argparse
 import codecs
 import datetime
-import htmlentitydefs
 import html2text
 import logging
 import markdown
@@ -256,19 +255,19 @@ def get_post_filename(data):
 
 def html2md(html):
     h2t = html2text.HTML2Text()
-    h2t.unicode_snob = False
+    h2t.unicode_snob = True
     return h2t.handle(html).strip()
 
 
 def stopwatch_set():
     """Starts stopwatch timer."""
-    globals()['_stopwatch_start_time']
+    globals()['_stopwatch_start_time'] = datetime.datetime.now()
 
 
 def stopwatch_get():
     """Returns string representation for elapsed time since last
     stopwatch_set() call."""
-    delta = datetime.datetime.now() - globals()['_stopwatch_start_time']
+    delta = datetime.datetime.now() - globals().get('_stopwatch_start_time', 0)
     delta = str(delta).strip('0:')
     return ('0' + delta) if delta[0] == '.' else delta
 
@@ -301,9 +300,10 @@ def dump(file_name, data, order):
 
                 content = extras.get('content', '')
                 if conf['md_input']:
-                    content = html2md(MD.convert(content))
-                comments = html2md(get_comments_md(extras.get('comments', [])))
+                    content = MD.convert(content)  # Preprocessing MD input
+                content = html2md(content)
 
+                comments = html2md(get_comments_md(extras.get('comments', [])))
                 extras = filter(None, [excerpt, content, comments])
                 f.write('\n' + '\n\n'.join(extras))
 
