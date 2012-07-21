@@ -13,7 +13,6 @@ import sys
 import time
 import traceback
 from xml.etree.ElementTree import XMLParser
-from pprint import pformat
 
 
 # XML elements to save
@@ -73,7 +72,6 @@ stats = {
     'comments': 0,
 }
 
-MD = markdown.Markdown(extensions=[])
 MAX_POST_NAME_LENGTH = 32
 
 
@@ -300,7 +298,10 @@ def dump(file_name, data, order):
 
                 content = extras.get('content', '')
                 if conf['md_input']:
-                    content = MD.convert(content)  # Preprocessing MD input
+                    # Using new MD instance works 3x faster than
+                    # reusing existing one for some reason
+                    md = markdown.Markdown(extensions=[])
+                    content = md.convert(content)
                 content = html2md(content)
 
                 comments = html2md(get_comments_md(extras.get('comments', [])))

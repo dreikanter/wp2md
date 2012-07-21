@@ -1,11 +1,12 @@
+Generate posts list (archive.html)
+Write readme
+Add link to public-static readme
+Add authoring info
+Add module docstring
+Add license
 Add avatars to comments
 	http://en.gravatar.com/site/implement/images/
 	http://0.gravatar.com/avatar/4751166532ec7ac6dddfdf8f6fcdd944?s=20&d=http%3A%2F%2Fa.paradigm.ru%2Fno-avatar.png&r=R
-Write readme
-Generate posts list (archive.html)
-Add link to public-static readme
 Packaging
 	entry_points
-	Include or add ref for html2text
-Check if MD reinstantiation will work faster
-Drop html2text local copy if the patch will be accepted.
+Drop html2text local copy after the patch will be included to PYPI.

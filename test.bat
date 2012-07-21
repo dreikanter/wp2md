@@ -6,4 +6,4 @@ rem	test -v wordpress-dump.xml
 
 set out_path=out
 rmdir /s /q %out_path%
-python wp2md.py -l export.log -d %out_path% %*
+python wp2md.py -l export.log -d %out_path% -m paradigmru.wordpress.2012-07-21.xml
