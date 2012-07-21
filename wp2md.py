@@ -15,7 +15,8 @@ import traceback
 from xml.etree.ElementTree import XMLParser
 
 
-# XML elements to save
+# XML elements to save (starred ones are additional fields generated during
+# export data processing)
 WHAT2SAVE = {
     'channel': [
         'title',
@@ -25,6 +26,8 @@ WHAT2SAVE = {
         'author_email',
         'base_site_url',
         'base_blog_url',
+        'export_date',          # Generated: data export timestamp
+        'content',              # Generated: items list
         # 'link',
         # 'language',
     ],
@@ -39,9 +42,9 @@ WHAT2SAVE = {
         'comment_status',
         'post_name',
         'status',
-        'content',
         'excerpt',
-        'comments',
+        'content',              # Generated: item content
+        'comments',             # Generated: comments lis
         # 'guid',
         # 'is_sticky',
         # 'menu_order',
@@ -66,24 +69,13 @@ WHAT2SAVE = {
     ],
 }
 
+log = logging.getLogger(__name__)
+conf = {}
 stats = {
     'pages': 0,
     'posts': 0,
     'comments': 0,
 }
-
-MAX_POST_NAME_LENGTH = 32
-
-
-def statplusplus(field, value=1):
-    global stats
-    if field in stats:
-        stats[field] += value
-    else:
-        raise ValueError("Illegal name for stats field")
-
-log = logging.getLogger(__name__)
-conf = {}
 
 
 # Configuration and logging
@@ -187,7 +179,7 @@ def parse_args():
         '-n',
         action='store',
         metavar='LEN',
-        default=MAX_POST_NAME_LENGTH,
+        default=32,
         help='post name (slug) length limit for file naming')
     parser.add_argument(
         'source',
@@ -270,6 +262,14 @@ def stopwatch_get():
     return ('0' + delta) if delta[0] == '.' else delta
 
 
+def statplusplus(field, value=1):
+    global stats
+    if field in stats:
+        stats[field] += value
+    else:
+        raise ValueError("Illegal name for stats field")
+
+
 # Data dumping
 
 def dump(file_name, data, order):
@@ -304,7 +304,7 @@ def dump(file_name, data, order):
                     content = md.convert(content)
                 content = html2md(content)
 
-                comments = html2md(get_comments_md(extras.get('comments', [])))
+                comments = html2md(gen_comments(extras.get('comments', [])))
                 extras = filter(None, [excerpt, content, comments])
                 f.write('\n' + '\n\n'.join(extras))
 
@@ -313,7 +313,7 @@ def dump(file_name, data, order):
         log.debug(e)
 
 
-def get_comments_md(comments):
+def gen_comments(comments):
     """Generates a MD-formatted plain-text comments from parsed data."""
     result = u''
     for comment in comments:
@@ -337,49 +337,71 @@ def get_comments_md(comments):
     return result and (u"## Comments\n\n" + result)
 
 
-def dump_channel(data):
-    """Dumps RSS channel metadata."""
-    file_name = get_dump_path('info.txt')
-    log.info("Dumping blog metadata to '%s'" % file_name)
+def dump_channel(meta, items):
+    """Dumps RSS channel metadata and items index."""
+    file_name = get_dump_path('index.txt')
+    log.info("Dumping the index to '%s'" % file_name)
     fields = WHAT2SAVE['channel']
-    processed = {field: data.get(field, None) for field in fields}
+    meta = {field: meta.get(field, None) for field in fields}
 
-    pub_date = data.get('pubDate', None)
+    # Append export_date
+    pub_date = meta.get('pubDate', None)
     format = conf['parse_date_fmt']
-    processed['export_date'] = parse_date(pub_date, format, time.gmtime())
+    meta['export_date'] = parse_date(pub_date, format, time.gmtime())
 
-    dump(file_name, processed, fields)
+    # Append table of contents
+    meta['content'] = generate_toc(meta, items)
+
+    dump(file_name, meta, fields)
 
 
 def dump_item(data):
     """Dumps RSS channel item."""
     global stats
-    item_type = data.get('post_type', 'other')
+    item_type = data.get('post_type', None)
     item_type = {'post': 'posts', 'page': 'pages'}.get(item_type, None)
     if not item_type:
         return
 
     fields = WHAT2SAVE['item']
-    processed = {}
+    meta = {}
     for field in fields:
-        processed[field] = data.get(field, '')
+        meta[field] = data.get(field, '')
 
     # Post date
     format = conf['date_fmt']
-    value = processed.get('post_date', None)
-    processed['post_date'] = value and parse_date(value, format, None)
+    value = meta.get('post_date', None)
+    meta['post_date'] = value and parse_date(value, format, None)
 
     # Post date GMT
-    value = processed.get('post_date_gmt', None)
-    processed['post_date_gmt'] = value and parse_date(value, format, None)
+    value = meta.get('post_date_gmt', None)
+    meta['post_date_gmt'] = value and parse_date(value, format, None)
 
-    file_name = get_post_filename(processed)
+    file_name = get_post_filename(meta)
     log.info("Dumping '%s\%s'" % (item_type, file_name))
-    dump(get_dump_path(file_name, item_type), processed, fields)
+    dump(get_dump_path(file_name, item_type), meta, fields)
 
     statplusplus(item_type)
     if 'comments' in data:
         statplusplus('comments', len(data['comments']))
+
+
+def get_toc_sect(item):
+    if item['post_type'] == 'page':
+        return 'page'
+
+    pub_date = parse_date(item.get('post_date', None), conf['date_fmt'])
+    if type(pub_date) == time.struct_time:
+        return pub_date[0]
+
+    return None
+
+
+def generate_toc(meta, items):
+    content = u"# {title}\n\n{description}\n\n".format(**meta)
+    for item in items:
+        content += u"* [{title}]({link} \"{post_date}\")\n".format(**item)
+    return content
 
 
 # The Parser
@@ -391,7 +413,6 @@ class CustomParser:
         self.items = []
         self.item = None
         self.cmnt = None
-        self.field = None
         self.subj = None
 
     def start(self, tag, attrib):
@@ -423,11 +444,12 @@ class CustomParser:
         elif tag == 'item' and self.cur_section() == 'item':
             self.end_section()
             dump_item(self.item)
+            self.store_item_info()
             self.item = None
 
         elif tag == 'channel':
             self.end_section()
-            dump_channel(self.channel)
+            dump_channel(self.channel, self.items)
 
         elif self.cur_section():
             self.subj = None
@@ -444,9 +466,6 @@ class CustomParser:
                 self.channel[self.subj] = data
             self.subj = None
 
-    def close(self):
-        return self.channel, self.items
-
     def start_section(self, what):
         self.section_stack.append(what)
 
@@ -460,6 +479,30 @@ class CustomParser:
         except:
             return None
 
+    def store_item_info(self):
+        # TODO: Drop unused
+        post_type = self.item.get('post_type', '').lower()
+        if not post_type in ['post', 'page']:
+            return
+
+        info_fields = [
+            'title',
+            'link',
+            'creator',
+            'description',
+            'post_id',
+            'post_date',
+            'post_type',
+            'post_date_gmt',
+            'comment_status',
+            'post_name',
+            'status',
+        ]
+
+        self.items.append({})
+        for field in info_fields:
+            self.items[-1][field] = self.item.get(field, None)
+
 
 if __name__ == '__main__':
     init()
@@ -470,7 +513,7 @@ if __name__ == '__main__':
     parser = XMLParser(target=target)
     parser.feed(open(conf['source_file']).read())
 
-    log.info('-' * 60)
+    log.info('')
     totals = ', '.join([("%s: %d" % (s, stats[s])) for s in stats])
     log.info('Totals: ' + totals)
     log.info('Elapsed time: ' + stopwatch_get())
