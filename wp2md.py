@@ -4,7 +4,6 @@
 import argparse
 import codecs
 import datetime
-import html2text
 import logging
 import markdown
 import os.path
@@ -13,6 +12,9 @@ import sys
 import time
 import traceback
 from xml.etree.ElementTree import XMLParser
+
+sys.path.insert(0, '..')
+import html2text
 
 
 # XML elements to save (starred ones are additional fields generated during
@@ -96,7 +98,8 @@ def init():
         'file_date_fmt': args.p,
         'log_file': args.l,
         'md_input': args.m,
-        'max_name_len': args.n
+        'max_name_len': args.n,
+        'ref_links': args.r,
     }
 
     try:
@@ -189,6 +192,11 @@ def parse_args():
         default=DEFAULT_MAX_NAME_LEN,
         help='post name (slug) length limit for file naming')
     parser.add_argument(
+        '-r',
+        action='store_true',
+        default=False,
+        help='generate reference links instead of inline')
+    parser.add_argument(
         'source',
         action='store',
         help='source XML dump exported from Wordpress')
@@ -252,7 +260,7 @@ def get_post_filename(data):
 def html2md(html):
     h2t = html2text.HTML2Text()
     h2t.unicode_snob = True
-    h2t.inline_links = False
+    h2t.inline_links = not conf['ref_links']
     h2t.body_width = 0
     return h2t.handle(html).strip()
 
