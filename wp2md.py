@@ -584,6 +584,6 @@ if __name__ == '__main__':
     parser.feed(open(conf['source_file']).read())
 
     log.info('')
-    totals = ', '.join([("%s: %d" % (s, stats[s])) for s in stats])
-    log.info('Totals: ' + totals)
-    log.info('Elapsed time: ' + stopwatch_get())
+    totals = 'Total: posts: {post}; pages: {page}; comments: {comment}'
+    log.info(totals.format(**stats))
+    log.info('Elapsed time: %s s' % stopwatch_get())
