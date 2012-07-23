@@ -320,7 +320,10 @@ def dump(file_name, data, order):
                     content = md.convert(content)
                 content = html2md(content)
 
-                comments = html2md(gen_comments(extras.get('comments', [])))
+                if 'title' in data:
+                    content = u"# %s\n\n%s" % (data['title'], content)
+
+                comments = gen_comments(extras.get('comments', []))
                 extras = filter(None, [excerpt, content, comments])
                 f.write('\n' + '\n\n'.join(extras))
 
@@ -355,7 +358,7 @@ def gen_comments(comments):
 
 def dump_channel(meta, items):
     """Dumps RSS channel metadata and items index."""
-    file_name = get_dump_path('index.txt')
+    file_name = get_dump_path('index.md')
     log.info("Dumping the index to '%s'" % file_name)
     fields = WHAT2SAVE['channel']
     meta = {field: meta.get(field, None) for field in fields}

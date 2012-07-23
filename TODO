@@ -1,4 +1,5 @@
 Configurable output directory structure and file naming
+Fix URLs in the index (root URL param)
 Write readme
 Add link to public-static readme
 Add authoring info
