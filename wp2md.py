@@ -11,9 +11,10 @@ import re
 import sys
 import time
 import traceback
+import unicodedata
 from xml.etree.ElementTree import XMLParser
 
-sys.path.insert(0, '..')
+sys.path.insert(0, '.')
 import html2text
 
 
@@ -44,6 +45,7 @@ WHAT2SAVE = {
         'comment_status',
         'post_name',
         'status',
+        'post_type',
         'excerpt',
         'content',              # Generated: item content
         'comments',             # Generated: comments lis
@@ -53,7 +55,6 @@ WHAT2SAVE = {
         # 'ping_status',
         # 'post_parent',
         # 'post_password',
-        # 'post_type',
     ],
     'comment': [
         'comment_id',
@@ -72,13 +73,14 @@ WHAT2SAVE = {
 }
 
 DEFAULT_MAX_NAME_LEN = 50
+UNTITLED = 'untitled'
 
 log = logging.getLogger(__name__)
 conf = {}
 stats = {
-    'pages': 0,
-    'posts': 0,
-    'comments': 0,
+    'page': 0,
+    'post': 0,
+    'comment': 0,
 }
 
 
@@ -100,6 +102,8 @@ def init():
         'md_input': args.m,
         'max_name_len': args.n,
         'ref_links': args.r,
+        'page_path': args.pg,
+        'post_path': args.ps,
     }
 
     try:
@@ -154,7 +158,7 @@ def parse_args():
         '-d',
         action='store',
         metavar='PATH',
-        default=None,
+        default='{date}_{source}',
         help='destination path for generated files')
     parser.add_argument(
         '-u',
@@ -197,6 +201,18 @@ def parse_args():
         default=False,
         help='generate reference links instead of inline')
     parser.add_argument(
+        '-ps',
+        action='store',
+        metavar='PATH',
+        default=os.path.join("{year}", "{name}.md"),
+        help='post files path (see docs for variable names)')
+    parser.add_argument(
+        '-pg',
+        action='store',
+        metavar='PATH',
+        default="{name}.md",
+        help='page files path')
+    parser.add_argument(
         'source',
         action='store',
         help='source XML dump exported from Wordpress')
@@ -233,12 +249,13 @@ def parse_date(date_str, format, default=None):
     return result
 
 
-def get_dump_path(file_name, subdir=''):
+def get_dump_path(file_name, subdir='', data={}):
     """Generates dump directory absolute path."""
     explicit = conf['dump_path']
     result = explicit or '{date}_{source}'
     result = result.format(date=time.strftime(conf['file_date_fmt']),
                            source=os.path.basename(conf['source_file']))
+    # TODO: Generate path using item data
     return os.path.join(os.path.abspath(result), subdir, file_name)
 
 
@@ -255,6 +272,38 @@ def get_post_filename(data):
         pub_date = None
 
     return '_'.join(filter(bool, [pub_date, pid, name])) + '.md'
+
+
+def get_path(item_type, file_name=None, data=None):
+    """Generates full path for the generated file using configuration
+    and explicitly specified name or RSS item data. At least one argument
+    should be specified. @file_name has higher priority during output
+    path generation.
+
+    Arguments:
+        item_type -- 'post' or 'page'
+        file_name -- explicitly defined correct file name.
+        data -- preprocessed RSS item data dictionary."""
+
+    if not file_name and type(data) is not dict:
+        raise Exception('File name or RSS item data dict should be defined')
+
+    root = conf['dump_path']
+    root = root.format(date=time.strftime(conf['file_date_fmt']),
+                       source=os.path.basename(conf['source_file']))
+
+    if file_name:
+        relpath = file_name
+    else:
+        name = data.get('post_name', '').strip()
+        name = name or data.get('post_id', UNTITLED)
+        is_post = item_type == 'post'
+        relpath = conf['post_path'] if is_post else conf['page_path']
+        relpath = relpath.format(year=str(data['post_date'][0]),
+                                 month=str(data['post_date'][1]),
+                                 date=str(data['post_date'][2]),
+                                 name=name)
+    return os.path.join(os.path.abspath(root), relpath)
 
 
 def html2md(html):
@@ -283,7 +332,7 @@ def statplusplus(field, value=1):
     if field in stats:
         stats[field] += value
     else:
-        raise ValueError("Illegal name for stats field")
+        raise ValueError("Illegal name for stats field: " + str(field))
 
 
 # Data dumping
@@ -358,8 +407,8 @@ def gen_comments(comments):
 
 def dump_channel(meta, items):
     """Dumps RSS channel metadata and items index."""
-    file_name = get_dump_path('index.md')
-    log.info("Dumping the index to '%s'" % file_name)
+    file_name = get_path('page', 'index.md')
+    log.info("Dumping index to '%s'" % file_name)
     fields = WHAT2SAVE['channel']
     meta = {field: meta.get(field, None) for field in fields}
 
@@ -376,33 +425,35 @@ def dump_channel(meta, items):
 
 def dump_item(data):
     """Dumps RSS channel item."""
-    global stats
-    item_type = data.get('post_type', None)
-    item_type = {'post': 'posts', 'page': 'pages'}.get(item_type, None)
-    if not item_type:
+    if not 'post_type' in data:
+        log.error('Malformed RSS item: item type is not specified.')
+        return
+
+    item_type = data['post_type']
+    if item_type not in ['post', 'page']:
         return
 
     fields = WHAT2SAVE['item']
-    meta = {}
+    pdata = {}
     for field in fields:
-        meta[field] = data.get(field, '')
+        pdata[field] = data.get(field, '')
 
     # Post date
     format = conf['date_fmt']
-    value = meta.get('post_date', None)
-    meta['post_date'] = value and parse_date(value, format, None)
+    value = pdata.get('post_date', None)
+    pdata['post_date'] = value and parse_date(value, format, None)
 
     # Post date GMT
-    value = meta.get('post_date_gmt', None)
-    meta['post_date_gmt'] = value and parse_date(value, format, None)
+    value = pdata.get('post_date_gmt', None)
+    pdata['post_date_gmt'] = value and parse_date(value, format, None)
 
-    file_name = get_post_filename(meta)
-    log.info("Dumping '%s\%s'" % (item_type, file_name))
-    dump(get_dump_path(file_name, item_type), meta, fields)
+    dump_path = get_path(item_type, data=pdata)
+    log.info("Dumping %s to '%s'" % (item_type, dump_path))
+    dump(dump_path, pdata, fields)
 
     statplusplus(item_type)
     if 'comments' in data:
-        statplusplus('comments', len(data['comments']))
+        statplusplus('comment', len(data['comments']))
 
 
 def get_toc_sect(item):
@@ -499,11 +550,11 @@ class CustomParser:
             return None
 
     def store_item_info(self):
-        # TODO: Drop unused
         post_type = self.item.get('post_type', '').lower()
         if not post_type in ['post', 'page']:
             return
 
+        # TODO: Drop unused
         info_fields = [
             'title',
             'link',

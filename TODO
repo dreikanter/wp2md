@@ -1,10 +1,11 @@
 Configurable output directory structure and file naming
-Fix URLs in the index (root URL param)
+Order the index.html links in reverse chronological order and group them by year.
+Fix URLs in the index (use relative URLs OR root URL configuration param)
 Write readme
 Add link to public-static readme
 Add authoring info
 Add module docstring
-Add license
+Add license (GPL3)
 Add avatars to comments
 	http://en.gravatar.com/site/implement/images/
 	http://0.gravatar.com/avatar/4751166532ec7ac6dddfdf8f6fcdd944?s=20&d=http%3A%2F%2Fa.paradigm.ru%2Fno-avatar.png&r=R
@@ -14,9 +15,4 @@ Drop html2text local copy after the patch will be included to PYPI.
 
 html2text:
 
-URLs containing brackets and parenthesis could break markdown links and images when INLINE_LINKS = True.
-
-Escape the anchor contents
-Make tests work
-Add test to check the <a> and <img> escaping
-Update version/authoring info
+Pull request: URLs containing brackets and parenthesis could break markdown links and images when INLINE_LINKS = True.
