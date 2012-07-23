@@ -10,3 +10,12 @@ Add avatars to comments
 Packaging
 	entry_points
 Drop html2text local copy after the patch will be included to PYPI.
+
+html2text:
+
+URLs containing brackets and parenthesis could break markdown links and images when INLINE_LINKS = True.
+
+Escape the anchor contents
+Make tests work
+Add test to check the <a> and <img> escaping
+Update version/authoring info

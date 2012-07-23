@@ -1,9 +1,5 @@
 @echo off
-rem Runs the script on test data
-rem Usage:
-rem	test wordpress-dump.xml
-rem	test -v wordpress-dump.xml
-
-set out_path=out
+echo Runing WP2MD on test data...
+set out_path=..\paradigm.ru\pages\
 rmdir /s /q %out_path%
-python wp2md.py -l export.log -d %out_path% -m paradigmru.wordpress.2012-07-21.xml
+python wp2md.py -l export.log -d %out_path% -m -n abc wordpress.xml

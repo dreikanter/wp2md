@@ -69,6 +69,8 @@ WHAT2SAVE = {
     ],
 }
 
+DEFAULT_MAX_NAME_LEN = 50
+
 log = logging.getLogger(__name__)
 conf = {}
 stats = {
@@ -97,9 +99,14 @@ def init():
         'max_name_len': args.n
     }
 
-    limit = conf['max_name_len']
-    if limit < 0 or limit > 100:
+    try:
+        value = int(conf['max_name_len'])
+        if value < 0 or value > 100:
+            raise ValueError()
+        conf['max_name_len'] = value
+    except:
         log.warn('Bad post name length limitation value. Using default.')
+        conf['max_name_len'] = DEFAULT_MAX_NAME_LEN
 
 
 def init_logging(log_file, verbose):
@@ -179,7 +186,7 @@ def parse_args():
         '-n',
         action='store',
         metavar='LEN',
-        default=32,
+        default=DEFAULT_MAX_NAME_LEN,
         help='post name (slug) length limit for file naming')
     parser.add_argument(
         'source',
@@ -231,9 +238,8 @@ def get_post_filename(data):
     """Generates file name from item processed data."""
     pid = data.get('post_id', None)
     name = str(data.get('post_name', None))
-    max_name_len = 20
-    if len(name) > max_name_len:
-        name = name[:max_name_len] + '_'
+    if len(name) > conf['max_name_len']:
+        name = name[:conf['max_name_len']] + '_'
 
     try:
         pub_date = time.strftime(conf['file_date_fmt'], data['post_date'])
@@ -246,6 +252,8 @@ def get_post_filename(data):
 def html2md(html):
     h2t = html2text.HTML2Text()
     h2t.unicode_snob = True
+    h2t.inline_links = False
+    h2t.body_width = 0
     return h2t.handle(html).strip()
 
 
