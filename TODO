@@ -1,6 +1,6 @@
-Configurable output directory structure and file naming
+If file exists, add suffix.
 Order the index.html links in reverse chronological order and group them by year.
-Fix URLs in the index (use relative URLs OR root URL configuration param)
+Fix URLs in the index (subtract base_site_url)
 Write readme
 Add link to public-static readme
 Add authoring info
@@ -11,7 +11,8 @@ Add avatars to comments
 	http://0.gravatar.com/avatar/4751166532ec7ac6dddfdf8f6fcdd944?s=20&d=http%3A%2F%2Fa.paradigm.ru%2Fno-avatar.png&r=R
 Packaging
 	entry_points
-Drop html2text local copy after the patch will be included to PYPI.
+Drop html2text local copy after the Previous and next links for posts metadata
+patch will be included to PYPI.
 
 html2text:
 

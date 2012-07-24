@@ -249,31 +249,6 @@ def parse_date(date_str, format, default=None):
     return result
 
 
-def get_dump_path(file_name, subdir='', data={}):
-    """Generates dump directory absolute path."""
-    explicit = conf['dump_path']
-    result = explicit or '{date}_{source}'
-    result = result.format(date=time.strftime(conf['file_date_fmt']),
-                           source=os.path.basename(conf['source_file']))
-    # TODO: Generate path using item data
-    return os.path.join(os.path.abspath(result), subdir, file_name)
-
-
-def get_post_filename(data):
-    """Generates file name from item processed data."""
-    pid = data.get('post_id', None)
-    name = str(data.get('post_name', None))
-    if len(name) > conf['max_name_len']:
-        name = name[:conf['max_name_len']] + '_'
-
-    try:
-        pub_date = time.strftime(conf['file_date_fmt'], data['post_date'])
-    except:
-        pub_date = None
-
-    return '_'.join(filter(bool, [pub_date, pid, name])) + '.md'
-
-
 def get_path(item_type, file_name=None, data=None):
     """Generates full path for the generated file using configuration
     and explicitly specified name or RSS item data. At least one argument
@@ -303,7 +278,41 @@ def get_path(item_type, file_name=None, data=None):
                                  month=str(data['post_date'][1]),
                                  date=str(data['post_date'][2]),
                                  name=name)
-    return os.path.join(os.path.abspath(root), relpath)
+        result = os.path.join(os.path.abspath(root), relpath)
+
+    return uniquify(result)
+
+
+def uniquify(file_name):
+    """Inserts numeric suffix at the end of file name to make
+    it's name unique in the directory."""
+    suffix = 0
+    result = file_name
+    while True:
+        if os.path.exists(result):
+            suffix += 1
+            result = insert_suffix(file_name, suffix)
+        else:
+            return result
+
+
+def insert_suffix(file_name, suffix):
+    """Inserts suffix to the end of file name (before extension).
+    If suffix is zero (or False in boolean representation), nothing
+    will be inserted.
+
+    Usage:
+        >>> insert_suffix('c:/temp/hello.txt', 2)
+        c:/temp/hello-2.txt
+        >>> insert_suffix('readme.txt', 0)
+        readme.txt
+
+    Intended to be used for numeric suffixes for file
+    name uniquification (what a word!)."""
+    if not suffix:
+        return file_name
+    base, ext = os.path.splitext(file_name)
+    return "%s-%s%s" % (base, suffix, ext)
 
 
 def html2md(html):
