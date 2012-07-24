@@ -18,8 +18,8 @@ sys.path.insert(0, '.')
 import html2text
 
 
-# XML elements to save (starred ones are additional fields generated during
-# export data processing)
+# XML elements to save (starred ones are additional fields
+# generated during export data processing)
 WHAT2SAVE = {
     'channel': [
         'title',
@@ -358,16 +358,13 @@ def html2md(html):
 
 def generate_toc(meta, items):
     """Generates MD-formatted index page."""
-    # TODO: Order and group links
-    # TODO: Use real links for generated posts and pages
-
-    content = u"# {title}\n\n{description}\n\n".format(**meta)
+    content = meta.get('description', '') + '\n\n'
     for item in items:
-        content += u"* [{title}]({link} \"{post_date}\")\n".format(**item)
+        content += u"* {post_date}: [{title}]({link})\n".format(**item)
     return content
 
 
-def gen_comments(comments):
+def generate_comments(comments):
     """Generates MD-formatted comments list from parsed data."""
 
     result = u''
@@ -512,7 +509,7 @@ def dump(file_name, data, order):
                 if 'title' in data:
                     content = u"# %s\n\n%s" % (data['title'], content)
 
-                comments = gen_comments(extras.get('comments', []))
+                comments = generate_comments(extras.get('comments', []))
                 extras = filter(None, [excerpt, content, comments])
                 f.write('\n' + '\n\n'.join(extras))
 
@@ -609,23 +606,16 @@ class CustomParser:
         if not post_type in ['post', 'page']:
             return
 
-        # TODO: Drop unused
-        info_fields = [
+        fields = [
             'title',
             'link',
-            'creator',
-            'description',
             'post_id',
             'post_date',
             'post_type',
-            'post_date_gmt',
-            'comment_status',
-            'post_name',
-            'status',
         ]
 
         self.items.append({})
-        for field in info_fields:
+        for field in fields:
             self.items[-1][field] = self.item.get(field, None)
 
 

@@ -1,6 +1,4 @@
-Index should be generated from file list, not RSS items (return file name from dumpers and keep it in CustomParser.items).
-Order the index.html links in reverse chronological order and group them by year.
-Store drafts in special folder (add drafts_path parameter)
+Drop the index generation. It's public-static functionality.
 
 Write readme
 Add link to public-static readme
