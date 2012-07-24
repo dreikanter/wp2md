@@ -104,6 +104,8 @@ def init():
         'ref_links': args.r,
         'page_path': args.pg,
         'post_path': args.ps,
+        'fix_urls': args.url,
+        'base_url': args.b,
     }
 
     try:
@@ -213,6 +215,17 @@ def parse_args():
         default="{name}.md",
         help='page files path')
     parser.add_argument(
+        '-url',
+        action='store_false',
+        default=True,
+        help="keep absolute URLs in hrefs and image srcs")
+    parser.add_argument(
+        '-b',
+        action='store',
+        metavar='URL',
+        default=None,
+        help='base URL to subtract from hrefs (default is the root)')
+    parser.add_argument(
         'source',
         action='store',
         help='source XML dump exported from Wordpress')
@@ -278,9 +291,8 @@ def get_path(item_type, file_name=None, data=None):
                                  month=str(data['post_date'][1]),
                                  date=str(data['post_date'][2]),
                                  name=name)
-        result = os.path.join(os.path.abspath(root), relpath)
 
-    return uniquify(result)
+    return uniquify(os.path.join(os.path.abspath(root), relpath))
 
 
 def uniquify(file_name):
@@ -321,6 +333,10 @@ def html2md(html):
     h2t.inline_links = not conf['ref_links']
     h2t.body_width = 0
     return h2t.handle(html).strip()
+
+
+def fix_urls(text):
+    return text
 
 
 def stopwatch_set():
@@ -376,7 +392,9 @@ def dump(file_name, data, order):
                     # reusing existing one for some reason
                     md = markdown.Markdown(extensions=[])
                     content = md.convert(content)
-                content = html2md(content)
+
+                if conf['fix_urls']:
+                    content = fix_urls(html2md(content))
 
                 if 'title' in data:
                     content = u"# %s\n\n%s" % (data['title'], content)
@@ -400,13 +418,10 @@ def gen_comments(comments):
             if approved and not pingback:
                 cmfmt = u"**[{author}](#{id} \"{timestamp}\"):** {content}\n\n"
                 content = html2md(comment['comment_content'])
-                result += cmfmt.format(
-                        id=comment['comment_id'],
-                        timestamp=comment['comment_date'],
-                        author=comment['comment_author'],
-                        content=content
-                    )
-
+                result += cmfmt.format(id=comment['comment_id'],
+                                       timestamp=comment['comment_date'],
+                                       author=comment['comment_author'],
+                                       content=content)
         except:
             # Ignore malformed data
             pass
@@ -428,6 +443,10 @@ def dump_channel(meta, items):
 
     # Append table of contents
     meta['content'] = generate_toc(meta, items)
+
+    # Stores base URL in configuration if it's not defined explicitly
+    if conf['fix_urls'] and not conf['base_url']:
+        conf['base_url'] = meta.get('base_site_url', '')
 
     dump(file_name, meta, fields)
 

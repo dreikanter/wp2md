@@ -1,6 +1,7 @@
-If file exists, add suffix.
-Order the index.html links in reverse chronological order and group them by year.
 Fix URLs in the index (subtract base_site_url)
+
+Order the index.html links in reverse chronological order and group them by year.
+Store drafts in special folder
 Write readme
 Add link to public-static readme
 Add authoring info
