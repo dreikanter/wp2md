@@ -1,7 +1,7 @@
-Fix URLs in the index (subtract base_site_url)
-
+Index should be generated from file list, not RSS items (return file name from dumpers and keep it in CustomParser.items).
 Order the index.html links in reverse chronological order and group them by year.
-Store drafts in special folder
+Store drafts in special folder (add drafts_path parameter)
+
 Write readme
 Add link to public-static readme
 Add authoring info
@@ -12,9 +12,6 @@ Add avatars to comments
 	http://0.gravatar.com/avatar/4751166532ec7ac6dddfdf8f6fcdd944?s=20&d=http%3A%2F%2Fa.paradigm.ru%2Fno-avatar.png&r=R
 Packaging
 	entry_points
+
 Drop html2text local copy after the Previous and next links for posts metadata
 patch will be included to PYPI.
-
-html2text:
-
-Pull request: URLs containing brackets and parenthesis could break markdown links and images when INLINE_LINKS = True.

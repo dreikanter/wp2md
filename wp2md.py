@@ -74,6 +74,7 @@ WHAT2SAVE = {
 
 DEFAULT_MAX_NAME_LEN = 50
 UNTITLED = 'untitled'
+MD_URL_RE = None
 
 log = logging.getLogger(__name__)
 conf = {}
@@ -93,6 +94,9 @@ def init():
     conf = {
         'source_file': args.source,
         'dump_path': args.d,
+        'page_path': args.pg,
+        'post_path': args.ps,
+        'draft_path': args.dr,
         'verbose': args.v,
         'parse_date_fmt': args.u,
         'post_date_fmt': args.o,
@@ -102,8 +106,6 @@ def init():
         'md_input': args.m,
         'max_name_len': args.n,
         'ref_links': args.r,
-        'page_path': args.pg,
-        'post_path': args.ps,
         'fix_urls': args.url,
         'base_url': args.b,
     }
@@ -127,7 +129,7 @@ def init_logging(log_file, verbose):
         channel = logging.StreamHandler()
         channel.setLevel(log_level)
         fmt = '%(message)s'
-        channel.setFormatter(logging.Formatter(fmt, '%H:%M:%S'))
+        channel.setFormatter(logging.Formatter(fmt))
         log.addHandler(channel)
 
         if log_file:
@@ -215,6 +217,12 @@ def parse_args():
         default="{name}.md",
         help='page files path')
     parser.add_argument(
+        '-dr',
+        action='store',
+        metavar='PATH',
+        default="drafts/{name}.md",
+        help='draft files path')
+    parser.add_argument(
         '-url',
         action='store_false',
         default=True,
@@ -262,6 +270,16 @@ def parse_date(date_str, format, default=None):
     return result
 
 
+def get_path_fmt(item_type, data):
+    """Returns preconfigured export path format for specified
+    RSS item type and metadata."""
+
+    if data.get('status', None).lower() == 'draft':
+        return conf['draft_path']
+    is_post = item_type == 'post'
+    return conf['post_path'] if is_post else conf['page_path']
+
+
 def get_path(item_type, file_name=None, data=None):
     """Generates full path for the generated file using configuration
     and explicitly specified name or RSS item data. At least one argument
@@ -285,8 +303,7 @@ def get_path(item_type, file_name=None, data=None):
     else:
         name = data.get('post_name', '').strip()
         name = name or data.get('post_id', UNTITLED)
-        is_post = item_type == 'post'
-        relpath = conf['post_path'] if is_post else conf['page_path']
+        relpath = get_path_fmt(item_type, data)
         relpath = relpath.format(year=str(data['post_date'][0]),
                                  month=str(data['post_date'][1]),
                                  date=str(data['post_date'][2]),
@@ -298,6 +315,7 @@ def get_path(item_type, file_name=None, data=None):
 def uniquify(file_name):
     """Inserts numeric suffix at the end of file name to make
     it's name unique in the directory."""
+
     suffix = 0
     result = file_name
     while True:
@@ -321,11 +339,14 @@ def insert_suffix(file_name, suffix):
 
     Intended to be used for numeric suffixes for file
     name uniquification (what a word!)."""
+
     if not suffix:
         return file_name
     base, ext = os.path.splitext(file_name)
     return "%s-%s%s" % (base, suffix, ext)
 
+
+# Markdown processing and generation
 
 def html2md(html):
     h2t = html2text.HTML2Text()
@@ -335,9 +356,50 @@ def html2md(html):
     return h2t.handle(html).strip()
 
 
-def fix_urls(text):
-    return text
+def generate_toc(meta, items):
+    """Generates MD-formatted index page."""
+    # TODO: Order and group links
+    # TODO: Use real links for generated posts and pages
 
+    content = u"# {title}\n\n{description}\n\n".format(**meta)
+    for item in items:
+        content += u"* [{title}]({link} \"{post_date}\")\n".format(**item)
+    return content
+
+
+def gen_comments(comments):
+    """Generates MD-formatted comments list from parsed data."""
+
+    result = u''
+    for comment in comments:
+        try:
+            approved = comment['comment_approved'] == '1'
+            pingback = comment.get('comment_type', '').lower() == 'pingback'
+            if approved and not pingback:
+                cmfmt = u"**[{author}](#{id} \"{timestamp}\"):** {content}\n\n"
+                content = html2md(comment['comment_content'])
+                result += cmfmt.format(id=comment['comment_id'],
+                                       timestamp=comment['comment_date'],
+                                       author=comment['comment_author'],
+                                       content=content)
+        except:
+            # Ignore malformed data
+            pass
+
+    return result and (u"## Comments\n\n" + result)
+
+
+def fix_urls(text):
+    """Removes base_url prefix from MD links and image sources."""
+
+    global MD_URL_RE
+    if MD_URL_RE is None:
+        base_url = re.escape(conf['base_url'])
+        MD_URL_RE = re.compile(r'\]\(%s(.*)\)' % base_url)
+    return MD_URL_RE.sub(r'](\1)', text)
+
+
+# Statistics
 
 def stopwatch_set():
     """Starts stopwatch timer."""
@@ -360,7 +422,58 @@ def statplusplus(field, value=1):
         raise ValueError("Illegal name for stats field: " + str(field))
 
 
-# Data dumping
+# Parser data handlers
+
+def dump_channel(meta, items):
+    """Dumps RSS channel metadata and items index."""
+    file_name = get_path('page', 'index.md')
+    log.info("Dumping index to '%s'" % file_name)
+    fields = WHAT2SAVE['channel']
+    meta = {field: meta.get(field, None) for field in fields}
+
+    # Append export_date
+    pub_date = meta.get('pubDate', None)
+    format = conf['parse_date_fmt']
+    meta['export_date'] = parse_date(pub_date, format, time.gmtime())
+
+    # Append table of contents
+    meta['content'] = generate_toc(meta, items)
+
+    dump(file_name, meta, fields)
+
+
+def dump_item(data):
+    """Dumps RSS channel item."""
+    if not 'post_type' in data:
+        log.error('Malformed RSS item: item type is not specified.')
+        return
+
+    item_type = data['post_type']
+    if item_type not in ['post', 'page', 'draft']:
+        return
+
+    fields = WHAT2SAVE['item']
+    pdata = {}
+    for field in fields:
+        pdata[field] = data.get(field, '')
+
+    # Post date
+    format = conf['date_fmt']
+    value = pdata.get('post_date', None)
+    pdata['post_date'] = value and parse_date(value, format, None)
+
+    # Post date GMT
+    value = pdata.get('post_date_gmt', None)
+    pdata['post_date_gmt'] = value and parse_date(value, format, None)
+
+    dump_path = get_path(item_type, data=pdata)
+    log.info("Dumping %s to '%s'" % (item_type, dump_path))
+    dump(dump_path, pdata, fields)
+
+    statplusplus(item_type)
+    if 'comments' in data:
+        statplusplus('comment', len(data['comments']))
+
 
 def dump(file_name, data, order):
     """Dumps a dictionary to YAML-like text file."""
@@ -408,98 +521,10 @@ def dump(file_name, data, order):
         log.debug(e)
 
 
-def gen_comments(comments):
-    """Generates a MD-formatted plain-text comments from parsed data."""
-    result = u''
-    for comment in comments:
-        try:
-            approved = comment['comment_approved'] == '1'
-            pingback = comment.get('comment_type', '').lower() == 'pingback'
-            if approved and not pingback:
-                cmfmt = u"**[{author}](#{id} \"{timestamp}\"):** {content}\n\n"
-                content = html2md(comment['comment_content'])
-                result += cmfmt.format(id=comment['comment_id'],
-                                       timestamp=comment['comment_date'],
-                                       author=comment['comment_author'],
-                                       content=content)
-        except:
-            # Ignore malformed data
-            pass
-
-    return result and (u"## Comments\n\n" + result)
-
-
-def dump_channel(meta, items):
-    """Dumps RSS channel metadata and items index."""
-    file_name = get_path('page', 'index.md')
-    log.info("Dumping index to '%s'" % file_name)
-    fields = WHAT2SAVE['channel']
-    meta = {field: meta.get(field, None) for field in fields}
-
-    # Append export_date
-    pub_date = meta.get('pubDate', None)
-    format = conf['parse_date_fmt']
-    meta['export_date'] = parse_date(pub_date, format, time.gmtime())
-
-    # Append table of contents
-    meta['content'] = generate_toc(meta, items)
-
-    # Stores base URL in configuration if it's not defined explicitly
+def store_base_url(channel):
+    """Stores base URL in configuration if it's not defined explicitly."""
     if conf['fix_urls'] and not conf['base_url']:
-        conf['base_url'] = meta.get('base_site_url', '')
-
-    dump(file_name, meta, fields)
-
-
-def dump_item(data):
-    """Dumps RSS channel item."""
-    if not 'post_type' in data:
-        log.error('Malformed RSS item: item type is not specified.')
-        return
-
-    item_type = data['post_type']
-    if item_type not in ['post', 'page']:
-        return
-
-    fields = WHAT2SAVE['item']
-    pdata = {}
-    for field in fields:
-        pdata[field] = data.get(field, '')
-
-    # Post date
-    format = conf['date_fmt']
-    value = pdata.get('post_date', None)
-    pdata['post_date'] = value and parse_date(value, format, None)
-
-    # Post date GMT
-    value = pdata.get('post_date_gmt', None)
-    pdata['post_date_gmt'] = value and parse_date(value, format, None)
-
-    dump_path = get_path(item_type, data=pdata)
-    log.info("Dumping %s to '%s'" % (item_type, dump_path))
-    dump(dump_path, pdata, fields)
-
-    statplusplus(item_type)
-    if 'comments' in data:
-        statplusplus('comment', len(data['comments']))
-
-
-def get_toc_sect(item):
-    if item['post_type'] == 'page':
-        return 'page'
-
-    pub_date = parse_date(item.get('post_date', None), conf['date_fmt'])
-    if type(pub_date) == time.struct_time:
-        return pub_date[0]
-
-    return None
-
-
-def generate_toc(meta, items):
-    content = u"# {title}\n\n{description}\n\n".format(**meta)
-    for item in items:
-        content += u"* [{title}]({link} \"{post_date}\")\n".format(**item)
-    return content
+        conf['base_url'] = channel.get('base_site_url', '')
 
 
 # The Parser
@@ -562,6 +587,8 @@ class CustomParser:
 
             elif self.cur_section() == 'channel':
                 self.channel[self.subj] = data
+                if self.subj == 'base_site_url':
+                    store_base_url(self.channel)
             self.subj = None
 
     def start_section(self, what):
