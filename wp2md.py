@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Export Wordpress XML dump to markdown files"""
+"""A script to convert Wordpress XML dumps to plain text/markdown files."""
 
 import argparse
 import codecs
@@ -17,6 +17,14 @@ from xml.etree.ElementTree import XMLParser
 sys.path.insert(0, '.')
 import html2text
 
+__author__ = "Alex Musayev"
+__email__ = "alex.musayev@gmail.com"
+__copyright__ = "Copyright 2012, %s <http://alex.musayev.com>" % __author__
+__license__ = "GPL"
+__version_info__ = (0, 8, 0)
+__version__ = ".".join(map(str, __version_info__))
+__status__ = "Development"
+__url__ = "https://github.com/dreikanter/wp2md"
 
 # XML elements to save (starred ones are additional fields
 # generated during export data processing)
