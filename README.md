@@ -4,9 +4,13 @@ A python script to convert Wordpress XML dump to a set of plain text/[markdown](
 
 ## Installation
 
-Download, unzip and run 'python setup.py install'. The script could also be executed without installation if the dependencies are already installed in the system:
+The script could be installed by command:
 
-* [html2text](https://github.com/aaronsw/html2text/) (included)
+	pip install -e git+git://github.com/dreikanter/wp2md#egg=wp2md
+
+It will install wp2md and the following dependencies:
+
+* [html2text](https://github.com/aaronsw/html2text/)
 * [python-markdown](http://pypi.python.org/pypi/Markdown/)
 
 ## Usage
