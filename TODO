@@ -1,7 +1,5 @@
-Script packaging
-	entry_points
 Add avatars to comments
 	http://en.gravatar.com/site/implement/images/
 	http://0.gravatar.com/avatar/4751166532ec7ac6dddfdf8f6fcdd944?s=20&d=http%3A%2F%2Fa.paradigm.ru%2Fno-avatar.png&r=R
 
-Drop html2text local copy after the patch will be included to PYPI.
+Drop html2text local copy after the patch will be included to PYPI. And change license to MIT.

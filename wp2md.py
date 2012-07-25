@@ -16,14 +16,14 @@ from xml.etree.ElementTree import XMLParser
 sys.path.insert(0, 'lib')
 import html2text
 
-__author__ = "Alex Musayev"
-__email__ = "alex.musayev@gmail.com"
+__author__ = 'Alex Musayev'
+__email__ = 'alex.musayev@gmail.com'
 __copyright__ = "Copyright 2012, %s <http://alex.musayev.com>" % __author__
-__license__ = "GPL"
+__license__ = 'GNU GPL 3'
 __version_info__ = (0, 8, 0)
-__version__ = ".".join(map(str, __version_info__))
-__status__ = "Development"
-__url__ = "https://github.com/dreikanter/wp2md"
+__version__ = '.'.join(map(str, __version_info__))
+__status__ = 'Development'
+__url__ = 'https://github.com/dreikanter/wp2md'
 
 # XML elements to save (starred ones are additional fields
 # generated during export data processing)
@@ -626,7 +626,7 @@ class CustomParser:
             self.items[-1][field] = self.item.get(field, None)
 
 
-if __name__ == '__main__':
+def main():
     init()
     log.info("Parsing '%s'..." % os.path.basename(conf['source_file']))
 
@@ -639,3 +639,7 @@ if __name__ == '__main__':
     totals = 'Total: posts: {post}; pages: {page}; comments: {comment}'
     log.info(totals.format(**stats))
     log.info('Elapsed time: %s s' % stopwatch_get())
+
+
+if __name__ == '__main__':
+    main()
