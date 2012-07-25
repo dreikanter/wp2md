@@ -11,10 +11,9 @@ import re
 import sys
 import time
 import traceback
-import unicodedata
 from xml.etree.ElementTree import XMLParser
 
-sys.path.insert(0, '.')
+sys.path.insert(0, 'lib')
 import html2text
 
 __author__ = "Alex Musayev"
