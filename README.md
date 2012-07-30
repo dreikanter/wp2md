@@ -87,3 +87,10 @@ If the post contains comments, they will be included below.
 * How to [export Wordpress data](http://codex.wordpress.org/Tools_Export_Screen)
 * How to [export Wordpress.com data](http://en.support.wordpress.com/export/)
 
+
+## Copyright and licensing
+
+Copyright &copy; 2012 by [Alex Musayev](http://alex.musayev.com).  
+License: GNU (see [LICENSE](https://raw.github.com/dreikanter/wp2md/master/LICENSE)).
+
+Project home: [https://github.com/dreikanter/wp2md](https://github.com/dreikanter/wp2md).
