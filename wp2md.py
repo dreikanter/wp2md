@@ -312,9 +312,11 @@ def get_path(item_type, file_name=None, data=None):
         name = name or data.get('post_id', UNTITLED)
         relpath = get_path_fmt(item_type, data)
         relpath = relpath.format(year=str(data['post_date'][0]),
-                                 month=str(data['post_date'][1]),
-                                 date=str(data['post_date'][2]),
-                                 name=name)
+                                 month=str(data['post_date'][1]).zfill(2),
+                                 date=str(data['post_date'][2]).zfill(2),
+                                 day=str(data['post_date'][2]).zfill(2),
+                                 name=name,
+                                 title=name)
 
     return uniquify(os.path.join(os.path.abspath(root), relpath))
 
