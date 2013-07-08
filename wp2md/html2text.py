@@ -256,7 +256,10 @@ class HTML2Text(HTMLParser.HTMLParser):
 
         self.outtext = self.outtext.join(self.outtextlist)
         if self.unicode_snob:
-            nbsp = unichr(name2cp('nbsp'))
+            try:
+                nbsp = unichr(name2cp('nbsp'))
+            except NameError: #Python3
+                nbsp = chr(name2cp('nbsp'))
         else:
             nbsp = u' '
         self.outtext = self.outtext.replace(u'&nbsp_place_holder;', nbsp)
@@ -764,7 +767,7 @@ def main():
 
     p = optparse.OptionParser('%prog [(filename|url) [encoding]]',
                               version='%prog ' + __version__)
-    p.add_option("--ignore-emphasis", dest="ignore_emphasis", action="store_true", 
+    p.add_option("--ignore-emphasis", dest="ignore_emphasis", action="store_true",
         default=IGNORE_EMPHASIS, help="don't include any formatting for emphasis")
     p.add_option("--ignore-links", dest="ignore_links", action="store_true",
         default=IGNORE_ANCHORS, help="don't include any formatting for links")

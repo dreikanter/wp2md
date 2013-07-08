@@ -635,7 +635,7 @@ def main():
     stopwatch_set()
     target = CustomParser()
     parser = XMLParser(target=target)
-    parser.feed(open(conf['source_file']).read())
+    parser.feed(codecs.open(conf['source_file'], 'r', 'utf-8').read())
 
     log.info('')
     totals = 'Total: posts: {post}; pages: {page}; comments: {comment}'
