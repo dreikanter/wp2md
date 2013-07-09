@@ -2,6 +2,7 @@
 
 A python script to convert Wordpress XML dump to a set of plain text/[markdown](http://daringfireball.net/projects/markdown) files. Intended to be used for migration from Wordpress to [public-static](http://github.com/dreikanter/public-static) website generator, but could also be helpful as general purpose Wordpress content processor.
 
+
 ## Installation
 
 The script could be installed by command:
@@ -13,6 +14,7 @@ It will install wp2md and the following dependencies:
 * [html2text](https://github.com/aaronsw/html2text/)
 * [python-markdown](http://pypi.python.org/pypi/Markdown/)
 
+
 ## Usage
 
 [Export](http://en.support.wordpress.com/export/) Wordpress data to XML file (Tools → Export → All content):
@@ -21,13 +23,13 @@ It will install wp2md and the following dependencies:
 
 And then run the following command:
 
-	python wp2md.py -d /export/path/ wordpress-dump.xml
+	wp2md -d /export/path/ wordpress-dump.xml
 
 Where `/export/path/` is the directory where post and page files will be generated, and `wordpress-dump.xml` is the XML file exported by Wordpress.
 
 Use `--help` parameter to see the complete list of command line options:
 
-	usage: wp2md.py [options] source
+	usage: wp2md [options] source
 
 	Export Wordpress XML dump to markdown files
 
@@ -82,6 +84,7 @@ Each exported file has a straightforward structure intended for further processi
 
 If the post contains comments, they will be included below.
 
+
 ## See also
 
 * How to [export Wordpress data](http://codex.wordpress.org/Tools_Export_Screen)
@@ -90,7 +93,7 @@ If the post contains comments, they will be included below.
 
 ## Copyright and licensing
 
-Copyright &copy; 2012 by [Alex Musayev](http://alex.musayev.com).  
+Copyright &copy; 2013 by [Alex Musayev](http://alex.musayev.com).  
 License: GNU (see [LICENSE](https://raw.github.com/dreikanter/wp2md/master/LICENSE)).
 
 Project home: [https://github.com/dreikanter/wp2md](https://github.com/dreikanter/wp2md).
