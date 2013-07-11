@@ -12,18 +12,11 @@ import sys
 import time
 import traceback
 from xml.etree.ElementTree import XMLParser
+from . import html2text
 
-sys.path.insert(0, 'lib')
-import html2text
+PY2 = sys.version_info[0] == 2
 
-__author__ = 'Alex Musayev'
-__email__ = 'alex.musayev@gmail.com'
-__copyright__ = "Copyright 2012, %s <http://alex.musayev.com>" % __author__
-__license__ = 'GNU GPL 3'
-__version_info__ = (0, 8, 0)
-__version__ = '.'.join(map(str, __version_info__))
-__status__ = 'Development'
-__url__ = 'https://github.com/dreikanter/wp2md'
+str_t = unicode if PY2 else str
 
 # XML elements to save (starred ones are additional fields
 # generated during export data processing)
@@ -369,20 +362,20 @@ def generate_toc(meta, items):
     """Generates MD-formatted index page."""
     content = meta.get('description', '') + '\n\n'
     for item in items:
-        content += u"* {post_date}: [{title}]({link})\n".format(**item)
+        content += str_t("* {post_date}: [{title}]({link})\n").format(**item)
     return content
 
 
 def generate_comments(comments):
     """Generates MD-formatted comments list from parsed data."""
 
-    result = u''
+    result = str_t('')
     for comment in comments:
         try:
             approved = comment['comment_approved'] == '1'
             pingback = comment.get('comment_type', '').lower() == 'pingback'
             if approved and not pingback:
-                cmfmt = u"**[{author}](#{id} \"{timestamp}\"):** {content}\n\n"
+                cmfmt = str_t("**[{author}](#{id} \"{timestamp}\"):** {content}\n\n")
                 content = html2md(comment['comment_content'])
                 result += cmfmt.format(id=comment['comment_id'],
                                        timestamp=comment['comment_date'],
@@ -392,7 +385,7 @@ def generate_comments(comments):
             # Ignore malformed data
             pass
 
-    return result and (u"## Comments\n\n" + result)
+    return result and str_t("## Comments\n\n" + result)
 
 
 def fix_urls(text):
@@ -499,7 +492,7 @@ def dump(file_name, data, order):
                         value = time.strftime(conf['date_fmt'], data[field])
                     else:
                         value = data[field] or ''
-                    f.write(u"%s: %s\n" % (unicode(field), unicode(value)))
+                    f.write(str_t("%s: %s\n") % (str_t(field), str_t(value)))
 
             if extras:
                 excerpt = extras.get('excerpt', '')
@@ -516,7 +509,7 @@ def dump(file_name, data, order):
                     content = fix_urls(html2md(content))
 
                 if 'title' in data:
-                    content = u"# %s\n\n%s" % (data['title'], content)
+                    content = str_t("# %s\n\n%s") % (data['title'], content)
 
                 comments = generate_comments(extras.get('comments', []))
                 extras = filter(None, [excerpt, content, comments])
@@ -635,7 +628,11 @@ def main():
     stopwatch_set()
     target = CustomParser()
     parser = XMLParser(target=target)
-    parser.feed(codecs.open(conf['source_file'], 'r', 'utf-8').read())
+    if PY2:
+        text = open(conf['source_file']).read()
+    else:
+        text = codecs.open(conf['source_file'], encoding='utf-8').read()
+    parser.feed(text)
 
     log.info('')
     totals = 'Total: posts: {post}; pages: {page}; comments: {comment}'
