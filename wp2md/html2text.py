@@ -35,8 +35,17 @@ import optparse, re, sys, codecs, types
 try: from textwrap import wrap
 except: pass
 
+import sys
+
+PY2 = sys.version_info[0] == 2
+
+strtype = unicode if PY2 else str
+
 # Use Unicode characters instead of their ascii psuedo-replacements
 UNICODE_SNOB = 0
+
+# Escape all special characters.  Output is less readable, but avoids corner case formatting issues.
+ESCAPE_SNOB = 0
 
 # Put the links after each paragraph instead of at the end.
 LINKS_EACH_PARAGRAPH = 0
@@ -107,6 +116,7 @@ def dumb_property_dict(style):
 def dumb_css_parser(data):
     """returns a hash of css selectors, each of which contains a hash of css attributes"""
     # remove @import sentences
+    data += ';'
     importIndex = data.find('@import')
     while importIndex != -1:
         data = data[0:importIndex] + data[data.find(';', importIndex) + 1:]
@@ -180,6 +190,7 @@ class HTML2Text(HTMLParser.HTMLParser):
 
         # Config options
         self.unicode_snob = UNICODE_SNOB
+        self.escape_snob = ESCAPE_SNOB
         self.links_each_paragraph = LINKS_EACH_PARAGRAPH
         self.body_width = BODY_WIDTH
         self.skip_internal_links = SKIP_INTERNAL_LINKS
@@ -190,6 +201,8 @@ class HTML2Text(HTMLParser.HTMLParser):
         self.ignore_emphasis = IGNORE_EMPHASIS
         self.google_doc = False
         self.ul_item_mark = '*'
+        self.emphasis_mark = '_'
+        self.strong_mark = '**'
 
         if out is None:
             self.out = self.outtextf
@@ -210,6 +223,8 @@ class HTML2Text(HTMLParser.HTMLParser):
         self.space = 0
         self.a = []
         self.astack = []
+        self.maybe_automatic_link = None
+        self.absolute_url_matcher = re.compile(r'^[a-zA-Z+]+://')
         self.acount = 0
         self.list = []
         self.blockquote = 0
@@ -258,11 +273,11 @@ class HTML2Text(HTMLParser.HTMLParser):
         if self.unicode_snob:
             try:
                 nbsp = unichr(name2cp('nbsp'))
-            except NameError: #Python3
+            except:
                 nbsp = chr(name2cp('nbsp'))
         else:
-            nbsp = u' '
-        self.outtext = self.outtext.replace(u'&nbsp_place_holder;', nbsp)
+            nbsp = strtype(' ')
+        self.outtext = self.outtext.replace(strtype('&nbsp_place_holder;'), nbsp)
 
         return self.outtext
 
@@ -325,10 +340,10 @@ class HTML2Text(HTMLParser.HTMLParser):
             if strikethrough:
                 self.quiet += 1
             if italic:
-                self.o("_")
+                self.o(self.emphasis_mark)
                 self.drop_white_space += 1
             if bold:
-                self.o("**")
+                self.o(self.strong_mark)
                 self.drop_white_space += 1
             if fixed:
                 self.o('`')
@@ -354,14 +369,14 @@ class HTML2Text(HTMLParser.HTMLParser):
                     self.drop_last(2)
                     self.drop_white_space -= 1
                 else:
-                    self.o("**")
+                    self.o(self.strong_mark)
             if italic:
                 if self.drop_white_space:
                     # empty emphasis, drop it
                     self.drop_last(1)
                     self.drop_white_space -= 1
                 else:
-                    self.o("_")
+                    self.o(self.emphasis_mark)
             # space is only allowed after *all* emphasis marks
             if (bold or italic) and not self.emphasis:
                     self.o(" ")
@@ -435,8 +450,8 @@ class HTML2Text(HTMLParser.HTMLParser):
                 self.blockquote -= 1
                 self.p()
 
-        if tag in ['em', 'i', 'u'] and not self.ignore_emphasis: self.o("_")
-        if tag in ['strong', 'b'] and not self.ignore_emphasis: self.o("**")
+        if tag in ['em', 'i', 'u'] and not self.ignore_emphasis: self.o(self.emphasis_mark)
+        if tag in ['strong', 'b'] and not self.ignore_emphasis: self.o(self.strong_mark)
         if tag in ['del', 'strike', 's']:
             if start:
                 self.o("<"+tag+">")
@@ -465,13 +480,15 @@ class HTML2Text(HTMLParser.HTMLParser):
             if start:
                 if has_key(attrs, 'href') and not (self.skip_internal_links and attrs['href'].startswith('#')):
                     self.astack.append(attrs)
-                    self.o("[")
+                    self.maybe_automatic_link = attrs['href']
                 else:
                     self.astack.append(None)
             else:
                 if self.astack:
                     a = self.astack.pop()
-                    if a:
+                    if self.maybe_automatic_link:
+                        self.maybe_automatic_link = None
+                    elif a:
                         if self.inline_links:
                             self.o("](" + escape_md(a['href']) + ")")
                         else:
@@ -586,14 +603,24 @@ class HTML2Text(HTMLParser.HTMLParser):
 
             if self.startpre:
                 #self.out(" :") #TODO: not output when already one there
-                self.startpre = 0
+                if not data.startswith("\n"):  # <pre>stuff...
+                    data = "\n" + data
 
             bq = (">" * self.blockquote)
             if not (force and data and data[0] == ">") and self.blockquote: bq += " "
 
             if self.pre:
-                bq += "    "
+                if not self.list:
+                    bq += "    "
+                #else: list content is already partially indented
+                for i in xrange(len(self.list)):
+                    bq += "    "
                 data = data.replace("\n", "\n"+bq)
+
+            if self.startpre:
+                self.startpre = 0
+                if self.list:
+                    data = data.lstrip("\n") # use existing initial indentation
 
             if self.start:
                 self.space = 0
@@ -645,6 +672,17 @@ class HTML2Text(HTMLParser.HTMLParser):
         if self.style:
             self.style_def.update(dumb_css_parser(data))
 
+        if not self.maybe_automatic_link is None:
+            href = self.maybe_automatic_link
+            if href == data and self.absolute_url_matcher.match(href):
+                self.o("<" + data + ">")
+                return
+            else:
+                self.o("[")
+                self.maybe_automatic_link = None
+
+        if not self.code and not self.pre:
+            data = escape_md_section(data, snob=self.escape_snob)
         self.o(data, 1)
 
     def unknown_decl(self, data): pass
@@ -704,10 +742,13 @@ class HTML2Text(HTMLParser.HTMLParser):
         for para in text.split("\n"):
             if len(para) > 0:
                 if not skipwrap(para):
-                    for line in wrap(para, self.body_width):
-                        result += line + "\n"
-                    result += "\n"
-                    newlines = 2
+                    result += "\n".join(wrap(para, self.body_width))
+                    if para.endswith('  '):
+                        result += "  \n"
+                        newlines = 1
+                    else:
+                        result += "\n\n"
+                        newlines = 2
                 else:
                     if not onlywhite(para):
                         result += para + "\n"
@@ -721,6 +762,32 @@ class HTML2Text(HTMLParser.HTMLParser):
 ordered_list_matcher = re.compile(r'\d+\.\s')
 unordered_list_matcher = re.compile(r'[-\*\+]\s')
 md_chars_matcher = re.compile(r"([\\\[\]\(\)])")
+md_chars_matcher_all = re.compile(r"([`\*_{}\[\]\(\)#!])")
+md_dot_matcher = re.compile(r"""
+    ^             # start of line
+    (\s*\d+)      # optional whitespace and a number
+    (\.)          # dot
+    (?=\s)        # lookahead assert whitespace
+    """, re.MULTILINE | re.VERBOSE)
+md_plus_matcher = re.compile(r"""
+    ^
+    (\s*)
+    (\+)
+    (?=\s)
+    """, flags=re.MULTILINE | re.VERBOSE)
+md_dash_matcher = re.compile(r"""
+    ^
+    (\s*)
+    (-)
+    (?=\s|\-)     # followed by whitespace (bullet list, or spaced out hr)
+                  # or another dash (header or hr)
+    """, flags=re.MULTILINE | re.VERBOSE)
+slash_chars = r'\`*_{}[]()#+-.!'
+md_backslash_matcher = re.compile(r'''
+    (\\)          # match one slash
+    (?=[%s])      # followed by a char that requires escaping
+    ''' % re.escape(slash_chars),
+    flags=re.VERBOSE)
 
 def skipwrap(para):
     # If the text begins with four spaces or one tab, it's a code block; don't wrap
@@ -729,7 +796,7 @@ def skipwrap(para):
     # If the text begins with only two "--", possibly preceded by whitespace, that's
     # an emdash; so wrap.
     stripped = para.lstrip()
-    if stripped[0:2] == "--" and stripped[2] != "-":
+    if stripped[0:2] == "--" and len(stripped) > 2 and stripped[2] != "-":
         return False
     # I'm not sure what this is for; I thought it was to detect lists, but there's
     # a <br>-inside-<span> case in one of the tests that also depends upon it.
@@ -759,8 +826,19 @@ def unescape(s, unicode_snob=False):
     return h.unescape(s)
 
 def escape_md(text):
-    """Escapes markdown-sensitive characters."""
+    """Escapes markdown-sensitive characters within other markdown constructs."""
     return md_chars_matcher.sub(r"\\\1", text)
+
+def escape_md_section(text, snob=False):
+    """Escapes markdown-sensitive characters across whole document sections."""
+    text = md_backslash_matcher.sub(r"\\\1", text)
+    if snob:
+        text = md_chars_matcher_all.sub(r"\\\1", text)
+    text = md_dot_matcher.sub(r"\1\\\2", text)
+    text = md_plus_matcher.sub(r"\1\\\2", text)
+    text = md_dash_matcher.sub(r"\1\\\2", text)
+    return text
+
 
 def main():
     baseurl = ''
@@ -777,12 +855,16 @@ def main():
         default=False, help="convert an html-exported Google Document")
     p.add_option("-d", "--dash-unordered-list", action="store_true", dest="ul_style_dash",
         default=False, help="use a dash rather than a star for unordered list items")
+    p.add_option("-e", "--asterisk-emphasis", action="store_true", dest="em_style_asterisk",
+        default=False, help="use an asterisk rather than an underscore for emphasized text")
     p.add_option("-b", "--body-width", dest="body_width", action="store", type="int",
         default=BODY_WIDTH, help="number of characters per output line, 0 for no wrap")
     p.add_option("-i", "--google-list-indent", dest="list_indent", action="store", type="int",
         default=GOOGLE_LIST_INDENT, help="number of pixels Google indents nested lists")
     p.add_option("-s", "--hide-strikethrough", action="store_true", dest="hide_strikethrough",
-        default=False, help="hide strike-through text. only relevent when -g is specified as well")
+        default=False, help="hide strike-through text. only relevant when -g is specified as well")
+    p.add_option("--escape-all", action="store_true", dest="escape_snob",
+        default=False, help="Escape all special characters.  Output is less readable, but avoids corner case formatting issues.")
     (options, args) = p.parse_args()
 
     # process input
@@ -817,10 +899,15 @@ def main():
     else:
         data = sys.stdin.read()
 
-    data = data.decode(encoding)
+    if PY2:
+        data = data.decode(encoding)
+
     h = HTML2Text(baseurl=baseurl)
     # handle options
     if options.ul_style_dash: h.ul_item_mark = '-'
+    if options.em_style_asterisk:
+        h.emphasis_mark = '*'
+        h.strong_mark = '__'
 
     h.body_width = options.body_width
     h.list_indent = options.list_indent
@@ -829,6 +916,7 @@ def main():
     h.ignore_images = options.ignore_images
     h.google_doc = options.google_doc
     h.hide_strikethrough = options.hide_strikethrough
+    h.escape_snob = options.escape_snob
 
     wrapwrite(h.handle(data))
 
