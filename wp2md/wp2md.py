@@ -72,6 +72,14 @@ WHAT2SAVE = {
     ],
 }
 
+# Wordpress RSS items to public-static page header fields mapping
+# (undefined names will remain unchanged)
+FIELD_MAP = {
+    'creator': 'author',
+    'post_date': 'created',
+    'post_date_gmt': 'created_gmt',
+}
+
 DEFAULT_MAX_NAME_LEN = 50
 UNTITLED = 'untitled'
 MD_URL_RE = None
@@ -101,6 +109,7 @@ def init():
         'parse_date_fmt': args.u,
         'post_date_fmt': args.o,
         'date_fmt': args.f,
+        'page_date_fmt': args.ef,
         'file_date_fmt': args.p,
         'log_file': args.l,
         'md_input': args.m,
@@ -162,7 +171,7 @@ def parse_args():
         '-d',
         action='store',
         metavar='PATH',
-        default='{date}_{source}',
+        default='{year}{month}{day}_{source}',
         help='destination path for generated files')
     parser.add_argument(
         '-u',
@@ -181,7 +190,13 @@ def parse_args():
         action='store',
         metavar='FMT',
         default="%Y-%m-%d %H:%M:%S",
-        help='date/time fields format for exported data')
+        help='date/time fields parsing format for input data')
+    parser.add_argument(
+        '-ef',
+        action='store',
+        metavar='FMT',
+        default="%Y/%m/%d %H:%M:%S",
+        help='date/time fields format for generated pages')
     parser.add_argument(
         '-p',
         action='store',
@@ -208,13 +223,13 @@ def parse_args():
         '-ps',
         action='store',
         metavar='PATH',
-        default=os.path.join("{year}", "{name}.md"),
+        default=os.path.join("posts", "{year}{month}{day}-{name}.md"),
         help='post files path (see docs for variable names)')
     parser.add_argument(
         '-pg',
         action='store',
         metavar='PATH',
-        default="{name}.md",
+        default=os.path.join("pages", "{name}.md"),
         help='page files path')
     parser.add_argument(
         '-dr',
@@ -259,7 +274,7 @@ def tag_name(name):
 
 
 def parse_date(date_str, format, default=None):
-    """Parses date string according to parse_date_fmt configuration param."""
+    """Parses date string according to specified format."""
     try:
         result = time.strptime(date_str, format)
     except:
@@ -296,6 +311,9 @@ def get_path(item_type, file_name=None, data=None):
 
     root = conf['dump_path']
     root = root.format(date=time.strftime(conf['file_date_fmt']),
+                       year=time.strftime("%Y"),
+                       month=time.strftime("%m"),
+                       day=time.strftime("%d"),
                        source=os.path.basename(conf['source_file']))
 
     if file_name:
@@ -304,10 +322,11 @@ def get_path(item_type, file_name=None, data=None):
         name = data.get('post_name', '').strip()
         name = name or data.get('post_id', UNTITLED)
         relpath = get_path_fmt(item_type, data)
-        relpath = relpath.format(year=str(data['post_date'][0]),
-                                 month=str(data['post_date'][1]).zfill(2),
-                                 date=str(data['post_date'][2]).zfill(2),
-                                 day=str(data['post_date'][2]).zfill(2),
+        field = FIELD_MAP.get('post_date', 'post_date')
+        post_date = data[field]
+        relpath = relpath.format(year=time.strftime("%Y", post_date),
+                                 month=time.strftime("%m", post_date),
+                                 day=time.strftime("%d", post_date),
                                  name=name,
                                  title=name)
 
@@ -390,7 +409,6 @@ def generate_comments(comments):
 
 def fix_urls(text):
     """Removes base_url prefix from MD links and image sources."""
-
     global MD_URL_RE
     if MD_URL_RE is None:
         base_url = re.escape(conf['base_url'])
@@ -454,19 +472,23 @@ def dump_item(data):
     fields = WHAT2SAVE['item']
     pdata = {}
     for field in fields:
-        pdata[field] = data.get(field, '')
+        pdata[FIELD_MAP.get(field, field)] = data.get(field, '')
 
     # Post date
     format = conf['date_fmt']
-    value = pdata.get('post_date', None)
-    pdata['post_date'] = value and parse_date(value, format, None)
+    field = FIELD_MAP.get('post_date', 'post_date')
+    value = pdata.get(field, None)
+    pdata[field] = value and parse_date(value, format, None)
 
     # Post date GMT
-    value = pdata.get('post_date_gmt', None)
-    pdata['post_date_gmt'] = value and parse_date(value, format, None)
+    field = FIELD_MAP.get('post_date_gmt', 'post_date_gmt')
+    value = pdata.get(field, None)
+    pdata[field] = value and parse_date(value, format, None)
 
     dump_path = get_path(item_type, data=pdata)
     log.info("Dumping %s to '%s'" % (item_type, dump_path))
+
+    fields = [FIELD_MAP.get(field, field) for field in fields]
     dump(dump_path, pdata, fields)
 
     statplusplus(item_type)
@@ -489,7 +511,7 @@ def dump(file_name, data, order):
                     extras[field] = data[field]
                 else:
                     if type(data[field]) == time.struct_time:
-                        value = time.strftime(conf['date_fmt'], data[field])
+                        value = time.strftime(conf['page_date_fmt'], data[field])
                     else:
                         value = data[field] or ''
                     f.write(str_t("%s: %s\n") % (str_t(field), str_t(value)))
