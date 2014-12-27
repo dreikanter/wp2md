@@ -1,6 +1,6 @@
-# Wordpress to Markdown Exporter
+# WordPress to Markdown Exporter
 
-A python script to convert Wordpress XML dump to a set of plain text/[markdown](http://daringfireball.net/projects/markdown) files. Intended to be used for migration from Wordpress to [public-static](http://github.com/dreikanter/public-static) website generator, but could also be helpful as general purpose Wordpress content processor.
+A python script to convert WordPress XML dump to a set of plain text/[markdown](http://daringfireball.net/projects/markdown) files. Intended to be used for migration from WordPress to [public-static](http://github.com/dreikanter/public-static) website generator, but could also be helpful as general purpose WordPress content processor.
 
 
 ## Installation
@@ -17,24 +17,24 @@ It will install wp2md and the following dependencies:
 
 ## Usage
 
-[Export](http://en.support.wordpress.com/export/) Wordpress data to XML file (Tools → Export → All content):
+[Export](http://en.support.wordpress.com/export/) WordPress data to XML file (Tools → Export → All content):
 
-![Wordpress content export](http://img-fotki.yandex.ru/get/6403/988666.0/0_a05db_af845b23_L.jpg)
+![WordPress content export](http://img-fotki.yandex.ru/get/6403/988666.0/0_a05db_af845b23_L.jpg)
 
 And then run the following command:
 
 	wp2md -d /export/path/ wordpress-dump.xml
 
-Where `/export/path/` is the directory where post and page files will be generated, and `wordpress-dump.xml` is the XML file exported by Wordpress.
+Where `/export/path/` is the directory where post and page files will be generated, and `wordpress-dump.xml` is the XML file exported by WordPress.
 
 Use `--help` parameter to see the complete list of command line options:
 
 	usage: wp2md [options] source
 
-	Export Wordpress XML dump to markdown files
+	Export WordPress XML dump to markdown files
 
 	positional arguments:
-	  source      source XML dump exported from Wordpress
+	  source      source XML dump exported from WordPress
 
 	optional arguments:
 	  -h, --help  show this help message and exit
@@ -87,7 +87,7 @@ If the post contains comments, they will be included below.
 
 ## See also
 
-* How to [export Wordpress data](http://codex.wordpress.org/Tools_Export_Screen)
+* How to [export WordPress data](http://codex.wordpress.org/Tools_Export_Screen)
 * How to [export Wordpress.com data](http://en.support.wordpress.com/export/)
 
 
