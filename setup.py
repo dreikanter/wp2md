@@ -14,7 +14,7 @@ setup(
     author=wp2md.authoring.__author__,
     author_email=wp2md.authoring.__email__,
     url=wp2md.authoring.__url__,
-    long_description=open('README.md').read(),
+    long_description=open('README.md', encoding="utf8").read(),
     platforms=['any'],
     packages=find_packages(),
     install_requires=[
