@@ -1,5 +1,7 @@
 # WordPress to Markdown Exporter
 
+**Update:** I don't have much time to maintain this project, but I would really appreciate community help. If you looking for an open source project to contribute, it's a great opportunity. Pull request a very appreciated by me and migrating WordPress users.
+
 A python script to convert WordPress XML dump to a set of plain text/[markdown](http://daringfireball.net/projects/markdown) files. Intended to be used for migration from WordPress to [public-static](http://github.com/dreikanter/public-static) website generator, but could also be helpful as general purpose WordPress content processor.
 
 
