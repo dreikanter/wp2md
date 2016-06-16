@@ -91,6 +91,7 @@ If the post contains comments, they will be included below.
 
 * How to [export WordPress data](http://codex.wordpress.org/Tools_Export_Screen)
 * How to [export Wordpress.com data](http://en.support.wordpress.com/export/)
+* [Wordpress to Hugo exporter](https://github.com/SchumacherFM/wordpress-to-hugo-exporter)
 
 
 ## Copyright and licensing
