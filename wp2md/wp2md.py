@@ -379,7 +379,10 @@ def html2md(html):
 
 def generate_toc(meta, items):
     """Generates MD-formatted index page."""
-    content = meta.get('description', '') + '\n\n'
+    if not meta.get('description', ''):
+        content = '\n\n'
+    else:
+        content = meta.get('description', '') + '\n\n'
     for item in items:
         content += str_t("* {post_date}: [{title}]({link})\n").format(**item)
     return content
